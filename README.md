@@ -1,6 +1,10 @@
 # mcrs
 A modular cash register system for clubs, voluntary fire brigades, and more.
 
+
+
+# Mcrs
+
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.2.1.
 
 ## Development server
@@ -19,7 +23,6 @@ Angular CLI includes powerful code scaffolding tools. To generate a new componen
 
 ```bash
 ng generate component component-name
-ng g c component-name
 ```
 
 For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
