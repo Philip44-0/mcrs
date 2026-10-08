@@ -11,7 +11,7 @@ Angular client, Express server, everything except a small skeleton is a replacea
 
 1. **The skeleton is the only constant.** Everything else (catalog, stock, tables, orders, reports, language, theme, back button, dialogs, printing, …) is a module.
 2. **Every module can be removed or rewritten** by someone else, as long as the contracts it provides or requires are respected.
-3. **Modules never touch each other's data.** They talk through *contracts* (direct calls), *events* (notifications) and *hooks* (guards and filters).
+3. **Modules never touch each other's data.** They talk through _contracts_ (direct calls), _events_ (notifications) and _hooks_ (guards and filters).
 4. **Each module owns its data model.** There is no global schema.
 5. **No hot swapping.** The module list is read at startup and locked. Changing modules means stopping the system, editing the config, restarting (and rebuilding the client).
 6. **Mobile first**, but fully usable on desktop.
@@ -28,17 +28,17 @@ Angular client, Express server, everything except a small skeleton is a replacea
 
 ## 2. Terminology
 
-| Term | Meaning |
-|---|---|
+| Term                | Meaning                                                                                         |
+| ------------------- | ----------------------------------------------------------------------------------------------- |
 | **Skeleton / core** | Module loader, registry, contracts, event bus, API router, SSE hub, client shell. Not a module. |
-| **Module** | A folder with a `module.json` manifest and a server part, a client part, or both. |
-| **Capability** | A named, versioned service a module provides, e.g. `storage@1`, `catalog@1`. |
-| **Contract** | The TypeScript interface behind a capability, defined in `packages/shared`. |
-| **Event** | Fire-and-forget notification: "something happened" (past tense). |
-| **Hook** | A synchronous extension point. *Guard*: may reject an action. *Filter*: may transform a value. |
-| **Slot** | A named place in the Angular UI where modules contribute components. |
-| **Fingerprint** | SHA-256 over the sorted list of installed `id@version` entries. |
-| **Required module** | Cannot be removed: `auth`, `settings`, one `storage` provider. |
+| **Module**          | A folder with a `module.json` manifest and a server part, a client part, or both.               |
+| **Capability**      | A named, versioned service a module provides, e.g. `storage@1`, `catalog@1`.                    |
+| **Contract**        | The TypeScript interface behind a capability, defined in `packages/shared`.                     |
+| **Event**           | Fire-and-forget notification: "something happened" (past tense).                                |
+| **Hook**            | A synchronous extension point. _Guard_: may reject an action. _Filter_: may transform a value.  |
+| **Slot**            | A named place in the Angular UI where modules contribute components.                            |
+| **Fingerprint**     | SHA-256 over the sorted list of installed `id@version` entries.                                 |
+| **Required module** | Cannot be removed: `auth`, `settings`, one `storage` provider.                                  |
 
 ---
 
@@ -96,13 +96,13 @@ modules/stock/
   "mismatchPolicy": "block",
   "modules": [
     { "id": "storage-sqlite", "path": "modules/storage-sqlite", "config": { "file": "mcrs.db" } },
-    { "id": "auth",          "path": "modules/auth", "config": { "secureCookie": "auto" } },
-    { "id": "settings",      "path": "modules/settings" },
-    { "id": "dialogs",       "path": "modules/dialogs" },
-    { "id": "catalog",       "path": "modules/catalog" },
-    { "id": "tables",        "path": "modules/tables" },
-    { "id": "orders",        "path": "modules/orders" },
-    { "id": "stock",         "path": "modules/stock" }
+    { "id": "auth", "path": "modules/auth", "config": { "secureCookie": "auto" } },
+    { "id": "settings", "path": "modules/settings" },
+    { "id": "dialogs", "path": "modules/dialogs" },
+    { "id": "catalog", "path": "modules/catalog" },
+    { "id": "tables", "path": "modules/tables" },
+    { "id": "orders", "path": "modules/orders" },
+    { "id": "stock", "path": "modules/stock" }
   ]
 }
 ```
@@ -116,9 +116,9 @@ modules/stock/
 
 Each entry in `modules` has an `id` and exactly one source:
 
-| Property | Meaning |
-|---|---|
-| `path` | A folder, relative to the config file. It may be outside `modules/`, for example `../my-private-modules/printer`. |
+| Property  | Meaning                                                                                                                                |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `path`    | A folder, relative to the config file. It may be outside `modules/`, for example `../my-private-modules/printer`.                      |
 | `package` | An npm package name, resolved from `node_modules`. It can be installed from the registry, a git URL or a tarball made with `npm pack`. |
 
 ```json
@@ -146,9 +146,9 @@ both.
 
 ### 4.2 Environment variables
 
-| Variable | Meaning |
-|---|---|
-| `PORT` | Overrides `port` from `mcrs.config.json`. Default when neither is set: `3000`. |
+| Variable | Meaning                                                                        |
+| -------- | ------------------------------------------------------------------------------ |
+| `PORT`   | Overrides `port` from `mcrs.config.json`. Default when neither is set: `3000`. |
 
 During development, variables can be put into `apps/server/.env`, which is not committed (it is
 listed in `.gitignore`).
@@ -176,18 +176,18 @@ listed in `.gitignore`).
 }
 ```
 
-| Field | Required | Description |
-|---|---|---|
-| `id` | yes | Unique, lowercase, `[a-z0-9-]`. Used as route namespace and data prefix. |
-| `name`, `version` | yes | Display name, semver. |
-| `mcrs` | yes | Semver range of the skeleton API this module supports. |
-| `parts` | yes | Any of `"server"`, `"client"`. A module without `server` is registered manifest-only on the server (so fingerprints still match). |
-| `provides` | no | Capabilities as `name@major`. By default a capability has exactly one provider. Object form `{ "name": "output.target@1", "multi": true }` allows several. |
-| `requires` | no | Capabilities that must be provided by some installed module. |
-| `optional` | no | Capabilities used if present. |
-| `schemaVersion` | no | Version of the module's own data format (used for migrations and import/export). |
-| `exportable` | no | Module takes part in JSON import/export. |
-| `configSchema` | no | JSON Schema for the module's `config` block. |
+| Field             | Required | Description                                                                                                                                                |
+| ----------------- | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`              | yes      | Unique, lowercase, `[a-z0-9-]`. Used as route namespace and data prefix.                                                                                   |
+| `name`, `version` | yes      | Display name, semver.                                                                                                                                      |
+| `mcrs`            | yes      | Semver range of the skeleton API this module supports.                                                                                                     |
+| `parts`           | yes      | Any of `"server"`, `"client"`. A module without `server` is registered manifest-only on the server (so fingerprints still match).                          |
+| `provides`        | no       | Capabilities as `name@major`. By default a capability has exactly one provider. Object form `{ "name": "output.target@1", "multi": true }` allows several. |
+| `requires`        | no       | Capabilities that must be provided by some installed module.                                                                                               |
+| `optional`        | no       | Capabilities used if present.                                                                                                                              |
+| `schemaVersion`   | no       | Version of the module's own data format (used for migrations and import/export).                                                                           |
+| `exportable`      | no       | Module takes part in JSON import/export.                                                                                                                   |
+| `configSchema`    | no       | JSON Schema for the module's `config` block.                                                                                                               |
 
 Rules:
 
@@ -234,14 +234,14 @@ export interface ServerModule {
 
 export interface ModuleContext {
   id: string;
-  config: unknown;                          // validated config block
+  config: unknown; // validated config block
   log: Logger;
-  routes: RouteRegistry;                    // routes.add({ method, path, access, handler })
+  routes: RouteRegistry; // routes.add({ method, path, access, handler })
   events: EventBus;
   hooks: HookRegistry;
   capabilities: {
     provide<T>(name: string, impl: T): void;
-    get<T>(name: string): T;                // required capability, throws at startup if missing
+    get<T>(name: string): T; // required capability, throws at startup if missing
     tryGet<T>(name: string): T | undefined; // optional capability
   };
 }
@@ -253,18 +253,18 @@ export interface ModuleContext {
 
 Contracts live in `packages/shared/contracts`. A module provides a contract by calling `ctx.capabilities.provide(name, impl)`.
 
-| Capability | Provided by (default) | Purpose |
-|---|---|---|
-| `storage@1` | `storage-sqlite` | Persistence for all modules (required, exactly one) |
-| `auth@1` | `auth` | Current user, role checks (required) |
-| `settings@1` | `settings` | Registry for settings sections (required) |
-| `catalog@1` | `catalog` | Categories, items, orderable lookup |
-| `tables@1` | `tables` | Which tables exist |
-| `orders@1` | `orders` | Bills, orders, payment |
-| `stock@1` | `stock` | Remaining quantities |
-| `live@1` | core | Server-Sent Events publishing |
-| `dialog@1` | `dialogs` | Dialog service on the client |
-| `output.target@1` (multi) | output drivers | Printers, displays, … |
+| Capability                | Provided by (default) | Purpose                                             |
+| ------------------------- | --------------------- | --------------------------------------------------- |
+| `storage@1`               | `storage-sqlite`      | Persistence for all modules (required, exactly one) |
+| `auth@1`                  | `auth`                | Current user, role checks (required)                |
+| `settings@1`              | `settings`            | Registry for settings sections (required)           |
+| `catalog@1`               | `catalog`             | Categories, items, orderable lookup                 |
+| `tables@1`                | `tables`              | Which tables exist                                  |
+| `orders@1`                | `orders`              | Bills, orders, payment                              |
+| `stock@1`                 | `stock`               | Remaining quantities                                |
+| `live@1`                  | core                  | Server-Sent Events publishing                       |
+| `dialog@1`                | `dialogs`             | Dialog service on the client                        |
+| `output.target@1` (multi) | output drivers        | Printers, displays, …                               |
 
 ### 7.1 Storage contract
 
@@ -278,20 +278,20 @@ export interface StorageProvider {
 }
 
 export interface CollectionDef {
-  name: string;                                   // must start with "<moduleId>_"
+  name: string; // must start with "<moduleId>_"
   schemaVersion: number;
-  fields: Record<string, FieldType>;              // string | number | boolean | json | datetime
-  unique?: string[][];                            // uniqueness among non-deleted records
+  fields: Record<string, FieldType>; // string | number | boolean | json | datetime
+  unique?: string[][]; // uniqueness among non-deleted records
   indexes?: string[][];
   migrations?: Record<number, (tx: Tx) => Promise<void>>;
 }
 
 export interface BaseRecord {
-  id: string;            // UUIDv7, may be generated by the client
-  createdAt: string;     // ISO 8601 UTC
+  id: string; // UUIDv7, may be generated by the client
+  createdAt: string; // ISO 8601 UTC
   updatedAt: string;
-  deletedAt: string | null;   // soft delete
-  rev: number;           // optimistic concurrency
+  deletedAt: string | null; // soft delete
+  rev: number; // optimistic concurrency
 }
 
 export interface Collection<T extends BaseRecord> {
@@ -300,11 +300,16 @@ export interface Collection<T extends BaseRecord> {
   insert(doc: Omit<T, keyof BaseRecord> & { id?: string }, tx?: Tx): Promise<T>;
   update(id: string, patch: Partial<T>, opts?: { ifRev?: number }, tx?: Tx): Promise<T>;
   /** Atomic numeric change. Fails (ok:false) instead of going below min / above max. */
-  adjust(id: string, field: string, delta: number,
-         opts?: { min?: number; max?: number }, tx?: Tx): Promise<{ ok: boolean; value: number }>;
-  remove(id: string, tx?: Tx): Promise<void>;     // soft delete
+  adjust(
+    id: string,
+    field: string,
+    delta: number,
+    opts?: { min?: number; max?: number },
+    tx?: Tx,
+  ): Promise<{ ok: boolean; value: number }>;
+  remove(id: string, tx?: Tx): Promise<void>; // soft delete
   restore(id: string, tx?: Tx): Promise<void>;
-  purge(id: string, tx?: Tx): Promise<void>;      // hard delete, explicit only
+  purge(id: string, tx?: Tx): Promise<void>; // hard delete, explicit only
 }
 
 export interface Query {
@@ -312,7 +317,7 @@ export interface Query {
   orderBy?: Array<[field: string, dir: 'asc' | 'desc']>;
   limit?: number;
   offset?: number;
-  includeDeleted?: boolean;                       // default false
+  includeDeleted?: boolean; // default false
 }
 ```
 
@@ -325,7 +330,12 @@ export interface AuthProvider {
   user(req: Request): AuthUser | null;
   hasRole(req: Request, ...roles: string[]): boolean;
 }
-export interface AuthUser { id: string; username: string; displayName: string; roles: string[]; }
+export interface AuthUser {
+  id: string;
+  username: string;
+  displayName: string;
+  roles: string[];
+}
 ```
 
 Roles are an open set of strings. `admin` and `waiter` are defined by the default auth module; other modules may add their own (for example `display`).
@@ -339,7 +349,7 @@ export interface Orderable {
   priceCents: number;
   available: boolean;
   unavailableReason?: 'inactive' | 'sold-out' | string;
-  path: string[];                                // e.g. ["Drinks", "Soft drinks"]
+  path: string[]; // e.g. ["Drinks", "Soft drinks"]
 }
 
 export interface CatalogProvider {
@@ -361,12 +371,18 @@ Orders store a **snapshot** of item name and price on every line, taken through 
 ## 8. Events and hooks
 
 ```ts
-ctx.events.on('orders.order.sent', async (e) => { /* react */ });
+ctx.events.on('orders.order.sent', async (e) => {
+  /* react */
+});
 ctx.events.emit('stock.changed', { itemId, quantity });
 
-ctx.hooks.guard('orders.order.sending', async (payload, tx) => {
-  // throw new Reject('stock.soldOut', { itemId }) to abort the whole action
-}, { priority: 100 });
+ctx.hooks.guard(
+  'orders.order.sending',
+  async (payload, tx) => {
+    // throw new Reject('stock.soldOut', { itemId }) to abort the whole action
+  },
+  { priority: 100 },
+);
 
 ctx.hooks.filter('catalog.items.list', (items, req) => items.map(markSoldOut));
 ```
@@ -377,27 +393,27 @@ ctx.hooks.filter('catalog.items.list', (items, req) => items.map(markSoldOut));
 
 ### Semantics
 
-| Kind | Delivery | Failure behaviour |
-|---|---|---|
-| **Event** | In-process, asynchronous, **after** the transaction commits | A failing listener is logged and never affects the emitter or other listeners |
-| **Guard** | Awaited in priority order **inside** the transaction; receives `tx` | Any rejection aborts the action and rolls everything back; the client gets the rejection code |
-| **Filter** | Synchronous chain in priority order | An exception is logged; the unfiltered value is passed on |
+| Kind       | Delivery                                                            | Failure behaviour                                                                             |
+| ---------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| **Event**  | In-process, asynchronous, **after** the transaction commits         | A failing listener is logged and never affects the emitter or other listeners                 |
+| **Guard**  | Awaited in priority order **inside** the transaction; receives `tx` | Any rejection aborts the action and rolls everything back; the client gets the rejection code |
+| **Filter** | Synchronous chain in priority order                                 | An exception is logged; the unfiltered value is passed on                                     |
 
 ### Catalogue v1
 
-| Name | Kind | Emitted/run by | Typical listeners |
-|---|---|---|---|
-| `auth.login.succeeded` / `auth.login.failed` | event | auth | audit, live |
-| `catalog.item.created` / `updated` / `removed` | event | catalog | live |
-| `catalog.items.list` | filter | catalog | stock (marks sold out) |
-| `tables.table.changed` | event | tables | live |
-| `orders.order.sending` | guard | orders | stock (reserve quantity) |
-| `orders.order.sent` | event | orders | output, reports, live |
-| `orders.order.cancelling` | guard | cancellations | approval rules |
-| `orders.order.cancelled` | event | cancellations | stock (restock), reports, live |
-| `orders.bill.paying` | guard | orders | – |
-| `orders.bill.paid` | event | orders | output (receipt), reports |
-| `stock.changed` | event | stock | live |
+| Name                                           | Kind   | Emitted/run by | Typical listeners              |
+| ---------------------------------------------- | ------ | -------------- | ------------------------------ |
+| `auth.login.succeeded` / `auth.login.failed`   | event  | auth           | audit, live                    |
+| `catalog.item.created` / `updated` / `removed` | event  | catalog        | live                           |
+| `catalog.items.list`                           | filter | catalog        | stock (marks sold out)         |
+| `tables.table.changed`                         | event  | tables         | live                           |
+| `orders.order.sending`                         | guard  | orders         | stock (reserve quantity)       |
+| `orders.order.sent`                            | event  | orders         | output, reports, live          |
+| `orders.order.cancelling`                      | guard  | cancellations  | approval rules                 |
+| `orders.order.cancelled`                       | event  | cancellations  | stock (restock), reports, live |
+| `orders.bill.paying`                           | guard  | orders         | –                              |
+| `orders.bill.paid`                             | event  | orders         | output (receipt), reports      |
+| `stock.changed`                                | event  | stock          | live                           |
 
 ---
 
@@ -488,8 +504,12 @@ Standalone components, Signals, lazy-loaded routes, mobile first.
 ```ts
 export interface ClientModule {
   id: string;
-  routes?: Array<{ area: 'public' | 'admin' | 'waiter'; path: string;
-                   loadComponent: () => Promise<unknown>; data?: Record<string, unknown> }>;
+  routes?: Array<{
+    area: 'public' | 'admin' | 'waiter';
+    path: string;
+    loadComponent: () => Promise<unknown>;
+    data?: Record<string, unknown>;
+  }>;
   slots?: SlotContribution[];
   providers?: Provider[];
   styles?: string[];
@@ -502,16 +522,16 @@ export interface ClientModule {
 
 The shell provides a top bar, a router outlet, the mismatch screen and the slot outlets. Slots are Angular injection tokens with multi providers.
 
-| Slot | Typical contributors |
-|---|---|
-| `shell.topbar.left` | `back-button` |
-| `shell.topbar.right` | `settings` (cog) |
-| `settings.section` | `theme`, `i18n`, `settings` (module overview), `output`, `pwa` |
-| `area.menu.admin` / `area.menu.waiter` | `catalog`, `tables`, `reports`, … |
-| `list.row.controls` | `reorder` (up/down buttons, drag handle on desktop) |
-| `catalog.item.form.field` | `stock` (quantity field) |
-| `bill.line.actions` | `cancellations` |
-| `bill.footer.actions` | `orders` (send, pay), `output` (reprint) |
+| Slot                                   | Typical contributors                                           |
+| -------------------------------------- | -------------------------------------------------------------- |
+| `shell.topbar.left`                    | `back-button`                                                  |
+| `shell.topbar.right`                   | `settings` (cog)                                               |
+| `settings.section`                     | `theme`, `i18n`, `settings` (module overview), `output`, `pwa` |
+| `area.menu.admin` / `area.menu.waiter` | `catalog`, `tables`, `reports`, …                              |
+| `list.row.controls`                    | `reorder` (up/down buttons, drag handle on desktop)            |
+| `catalog.item.form.field`              | `stock` (quantity field)                                       |
+| `bill.line.actions`                    | `cancellations`                                                |
+| `bill.footer.actions`                  | `orders` (send, pay), `output` (reprint)                       |
 
 ### 11.3 Routes and back navigation
 
@@ -594,22 +614,22 @@ Modules that need popups declare `requires: ["dialog@1"]` and use `DialogService
 
 ## 13. Optional modules
 
-| Module | Parts | Provides | Requires (optional) | Notes |
-|---|---|---|---|---|
-| `catalog` | both | `catalog@1` | `storage`, `auth`, `dialog` (`live`) | Admin lists, waiter navigation |
-| `tables` | both | `tables@1` | `storage`, `auth`, `dialog` (`live`) | Admin defines table labels |
-| `orders` | both | `orders@1` | `storage`, `auth`, `catalog`, `tables` (`live`) | Bills, sending, paying |
-| `stock` | both | `stock@1` | `storage`, `catalog`, `orders` (`live`) | Quantities and sold-out |
-| `reorder` | client (+ server endpoint) | – | `catalog` | Up/down buttons, desktop drag and drop |
-| `dialogs` | client | `dialog@1` | – | Dialog implementation |
-| `back-button` | client | – | – | Visible back button |
-| `theme` | client | – | `settings` | Light/dark/system |
-| `i18n` | client | – | `settings` | Transloco, language picker |
-| `output` | both | – | `orders`, `settings` (`output.target`) | Routes jobs to printers/displays |
-| `reports` | both | – | `orders`, `catalog`, `settings` | Daily summaries |
-| `cancellations` | both | – | `orders`, `auth` | Audit log, cancelling sent lines |
-| `import-export` | both | – | `storage`, `settings` | JSON container (section 15) |
-| `pwa` | client | – | – | Service worker, offline queue |
+| Module          | Parts                      | Provides    | Requires (optional)                             | Notes                                  |
+| --------------- | -------------------------- | ----------- | ----------------------------------------------- | -------------------------------------- |
+| `catalog`       | both                       | `catalog@1` | `storage`, `auth`, `dialog` (`live`)            | Admin lists, waiter navigation         |
+| `tables`        | both                       | `tables@1`  | `storage`, `auth`, `dialog` (`live`)            | Admin defines table labels             |
+| `orders`        | both                       | `orders@1`  | `storage`, `auth`, `catalog`, `tables` (`live`) | Bills, sending, paying                 |
+| `stock`         | both                       | `stock@1`   | `storage`, `catalog`, `orders` (`live`)         | Quantities and sold-out                |
+| `reorder`       | client (+ server endpoint) | –           | `catalog`                                       | Up/down buttons, desktop drag and drop |
+| `dialogs`       | client                     | `dialog@1`  | –                                               | Dialog implementation                  |
+| `back-button`   | client                     | –           | –                                               | Visible back button                    |
+| `theme`         | client                     | –           | `settings`                                      | Light/dark/system                      |
+| `i18n`          | client                     | –           | `settings`                                      | Transloco, language picker             |
+| `output`        | both                       | –           | `orders`, `settings` (`output.target`)          | Routes jobs to printers/displays       |
+| `reports`       | both                       | –           | `orders`, `catalog`, `settings`                 | Daily summaries                        |
+| `cancellations` | both                       | –           | `orders`, `auth`                                | Audit log, cancelling sent lines       |
+| `import-export` | both                       | –           | `storage`, `settings`                           | JSON container (section 15)            |
+| `pwa`           | client                     | –           | –                                               | Service worker, offline queue          |
 
 ### 13.1 `catalog`
 
@@ -711,8 +731,8 @@ Container format:
   "created": "2026-10-06T12:00:00Z",
   "fingerprint": "c01d8e5a3b92",
   "modules": {
-    "catalog": { "version": "1.0.0", "schema": 2, "checksum": "sha256:…", "data": { } },
-    "stock":   { "version": "1.0.0", "schema": 1, "checksum": "sha256:…", "data": { } }
+    "catalog": { "version": "1.0.0", "schema": 2, "checksum": "sha256:…", "data": {} },
+    "stock": { "version": "1.0.0", "schema": 1, "checksum": "sha256:…", "data": {} }
   }
 }
 ```
@@ -720,7 +740,7 @@ Container format:
 - Each module with `exportable: true` implements `exportData()`, `importData(data, schema, mode)` and `migrate(data, fromSchema)`.
 - `checksum` is SHA-256 over the canonical JSON (sorted keys) of `data`. It detects accidental damage, not deliberate edits. An HMAC signature can be added later as an optional feature.
 - **Import runs in two steps:**
-  1. **Dry run** produces a compatibility report per module: *compatible*, *needs migration*, *module not installed (skipped)*, *module missing in file (left unchanged)*, *checksum failed*.
+  1. **Dry run** produces a compatibility report per module: _compatible_, _needs migration_, _module not installed (skipped)_, _module missing in file (left unchanged)_, _checksum failed_.
   2. The admin confirms; the import then runs in one transaction. Mode: `replace` or `merge`.
 - Sections for modules that are not installed are never imported, only reported.
 - Admin only; the import module asks for the password again.
@@ -729,17 +749,17 @@ Container format:
 
 ## 16. Security summary
 
-| Topic | Decision |
-|---|---|
-| Passwords | argon2id, configurable minimum length |
-| Session | JWT in `HttpOnly` cookie, 12 h sliding, revocable through `tokenVersion` |
-| CSRF | Double-submit token header plus Origin check |
-| Brute force | Rate limit per IP and per user, generic error messages |
-| Authorization | Mandatory `access` on every route, enforced on the server |
-| Transport | `Secure` cookie flag configurable for plain-HTTP local networks |
-| Headers | `helmet`, CSP, body size limit |
-| Data | Soft delete by default, purge needs password |
-| Modules | Namespaced routes and collections, locked registry while running |
+| Topic         | Decision                                                                 |
+| ------------- | ------------------------------------------------------------------------ |
+| Passwords     | argon2id, configurable minimum length                                    |
+| Session       | JWT in `HttpOnly` cookie, 12 h sliding, revocable through `tokenVersion` |
+| CSRF          | Double-submit token header plus Origin check                             |
+| Brute force   | Rate limit per IP and per user, generic error messages                   |
+| Authorization | Mandatory `access` on every route, enforced on the server                |
+| Transport     | `Secure` cookie flag configurable for plain-HTTP local networks          |
+| Headers       | `helmet`, CSP, body size limit                                           |
+| Data          | Soft delete by default, purge needs password                             |
+| Modules       | Namespaced routes and collections, locked registry while running         |
 
 ---
 
@@ -756,19 +776,19 @@ Container format:
 
 ## 18. Roadmap
 
-| Milestone | Content |
-|---|---|
-| M0 | Restructure the repo into the workspace layout; Express skeleton with proxy for `ng serve` |
-| M1 | `core-server`: config, loader, registry, fingerprints, router with access rules, events/hooks, error format |
-| M2 | `storage@1` contract, conformance suite, `storage-sqlite` |
-| M3 | `auth` with CSRF and rate limiting; `core-client` shell, slots, module generator, handshake and mismatch screen |
-| M4 | `settings` (cog, module overview), `dialogs` |
-| M5 | `catalog` and `tables` (admin side) |
-| M6 | `orders` (waiter flow, sending, paying, idempotency) |
-| M7 | `stock`, SSE/`live`, sold-out display |
-| M8 | `back-button`, `theme`, `i18n`, `reorder` |
-| M9 | `import-export`, `output`, `reports`, `cancellations` |
-| M10 | `pwa` and the HTTPS options |
+| Milestone | Content                                                                                                         |
+| --------- | --------------------------------------------------------------------------------------------------------------- |
+| M0        | Restructure the repo into the workspace layout; Express skeleton with proxy for `ng serve`                      |
+| M1        | `core-server`: config, loader, registry, fingerprints, router with access rules, events/hooks, error format     |
+| M2        | `storage@1` contract, conformance suite, `storage-sqlite`                                                       |
+| M3        | `auth` with CSRF and rate limiting; `core-client` shell, slots, module generator, handshake and mismatch screen |
+| M4        | `settings` (cog, module overview), `dialogs`                                                                    |
+| M5        | `catalog` and `tables` (admin side)                                                                             |
+| M6        | `orders` (waiter flow, sending, paying, idempotency)                                                            |
+| M7        | `stock`, SSE/`live`, sold-out display                                                                           |
+| M8        | `back-button`, `theme`, `i18n`, `reorder`                                                                       |
+| M9        | `import-export`, `output`, `reports`, `cancellations`                                                           |
+| M10       | `pwa` and the HTTPS options                                                                                     |
 
 ---
 
@@ -787,7 +807,7 @@ Container format:
 
 ## 20. Changelog
 
-| Version | Changes |
-|---|---|
-| 0.2 | Added module sources (`path` and `package`) with the trust warning (4.1), environment variables (4.2) and the CI workflow in the repository layout. |
-| 0.1 | First complete draft. |
+| Version | Changes                                                                                                                                             |
+| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.2     | Added module sources (`path` and `package`) with the trust warning (4.1), environment variables (4.2) and the CI workflow in the repository layout. |
+| 0.1     | First complete draft.                                                                                                                               |

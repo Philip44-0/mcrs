@@ -64,19 +64,19 @@ chore: regenerate package-lock.json with binaries for all platforms (#5)
 The roadmap has eleven milestones. Each milestone has a goal, a scope, deliverables and a
 definition of done in its description.
 
-| Milestone | Topic |
-|---|---|
-| M0 | Foundation: workspace and dev setup |
-| M1 | The engine room: core server |
-| M2 | A place to keep things: storage contract and SQLite |
-| M3 | Who goes there: authentication and the client shell |
-| M4 | The control panel: settings and dialogs |
-| M5 | Building the menu: catalog and tables |
-| M6 | From tap to table: ordering |
-| M7 | Always up to date: stock and live updates |
-| M8 | Make it yours: comfort modules |
-| M9 | Power tools: import/export, output, reports, cancellations |
-| M10 | Ready for the real world: PWA, HTTPS and release |
+| Milestone | Topic                                                      |
+| --------- | ---------------------------------------------------------- |
+| M0        | Foundation: workspace and dev setup                        |
+| M1        | The engine room: core server                               |
+| M2        | A place to keep things: storage contract and SQLite        |
+| M3        | Who goes there: authentication and the client shell        |
+| M4        | The control panel: settings and dialogs                    |
+| M5        | Building the menu: catalog and tables                      |
+| M6        | From tap to table: ordering                                |
+| M7        | Always up to date: stock and live updates                  |
+| M8        | Make it yours: comfort modules                             |
+| M9        | Power tools: import/export, output, reports, cancellations |
+| M10       | Ready for the real world: PWA, HTTPS and release           |
 
 Every issue has a **Summary**, **Acceptance criteria** (a checklist) and **References** to the
 specification. An issue is done when every box is ticked, the checks pass and the change is on
@@ -87,13 +87,13 @@ specification. An issue is done when every box is ticked, the checks pass and th
 Every issue gets at least one **type label**. Issues that touch a part of the skeleton or a module
 also get a **group label** (`scope` or `module`) together with the **specific label**.
 
-| Kind | Labels | Meaning |
-|---|---|---|
-| Type | `feature`, `chore`, `test`, `docs` | What kind of work it is |
-| Extra | `security`, `ui` | Added when the issue touches security or what users see |
-| Group | `scope`, `module` | Says whether the issue is about the skeleton or about a module |
-| Scope | `core-server`, `core-client`, `shared`, `tooling` | Which part of the skeleton (use with `scope`) |
-| Module | `auth`, `catalog`, `orders`, ... | Which module under `modules/` (use with `module`) |
+| Kind   | Labels                                            | Meaning                                                        |
+| ------ | ------------------------------------------------- | -------------------------------------------------------------- |
+| Type   | `feature`, `chore`, `test`, `docs`                | What kind of work it is                                        |
+| Extra  | `security`, `ui`                                  | Added when the issue touches security or what users see        |
+| Group  | `scope`, `module`                                 | Says whether the issue is about the skeleton or about a module |
+| Scope  | `core-server`, `core-client`, `shared`, `tooling` | Which part of the skeleton (use with `scope`)                  |
+| Module | `auth`, `catalog`, `orders`, ...                  | Which module under `modules/` (use with `module`)              |
 
 Examples: password hashing is `feature`, `security`, `module`, `auth`. The CI workflow is `chore`,
 `scope`, `tooling`.
