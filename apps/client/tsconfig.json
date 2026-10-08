@@ -14,7 +14,8 @@
     "target": "ES2022",
     "module": "preserve",
     "paths": {
-      "@mcrs/shared": ["../../packages/shared/src/index.ts"]
+      "@mcrs/shared": ["../../packages/shared/src/index.ts"],
+      "@mcrs/core-client": ["../../packages/core-client/src/index.ts"]
     }
   },
   "angularCompilerOptions": {
