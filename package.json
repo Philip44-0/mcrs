@@ -6,7 +6,7 @@
   "scripts": {
     "gen:modules": "node tools/gen-client-modules.mjs",
     "dev:server": "npm run dev -w @mcrs/server",
-    "dev:client": "npm run gen:modules && npm start -w @mcrs/client",
+    "dev:client": "npm start -w @mcrs/client",
     "build": "npm run gen:modules && npm run build -w @mcrs/client && npm run build -w @mcrs/server",
     "start": "node apps/server/dist/main.js"
   }
