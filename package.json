@@ -11,8 +11,8 @@
     "gen:modules": "node tools/gen-client-modules.mjs",
     "dev:server": "npm run dev -w @mcrs/server",
     "dev:client": "npm start -w @mcrs/client",
-    "build": "npm run gen:modules && npm run build -w @mcrs/client && npm run build -w @mcrs/server",
-    "start": "node apps/server/dist/main.js",
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test:ci --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "format": "prettier --write .",
     "format:check": "prettier --check ."

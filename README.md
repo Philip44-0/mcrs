@@ -1,3 +1,5 @@
+[![CI](https://github.com/Philip44-0/mcrs/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Philip44-0/mcrs/actions/workflows/ci.yml)
+
 # MCRS – Modular Cash Register System
 
 This build will contain the **default** configuration.
