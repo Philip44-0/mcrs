@@ -5,12 +5,12 @@
   "mismatchPolicy": "block",
   "modules": [
     { "id": "storage-sqlite", "path": "modules/storage-sqlite", "config": { "file": "mcrs.db" } },
-    { "id": "auth",          "path": "modules/auth", "config": { "secureCookie": "auto" } },
-    { "id": "settings",      "path": "modules/settings" },
-    { "id": "dialogs",       "path": "modules/dialogs" },
-    { "id": "catalog",       "path": "modules/catalog" },
-    { "id": "tables",        "path": "modules/tables" },
-    { "id": "orders",        "path": "modules/orders" },
-    { "id": "stock",         "path": "modules/stock" }
+    { "id": "auth", "path": "modules/auth", "config": { "secureCookie": "auto" } },
+    { "id": "settings", "path": "modules/settings" },
+    { "id": "dialogs", "path": "modules/dialogs" },
+    { "id": "catalog", "path": "modules/catalog" },
+    { "id": "tables", "path": "modules/tables" },
+    { "id": "orders", "path": "modules/orders" },
+    { "id": "stock", "path": "modules/stock" }
   ]
 }
