@@ -1,6 +1,6 @@
 # MCRS – Modular Cash Register System: Specification
 
-**Status:** Draft 0.3 · **Repository:** https://github.com/Philip44-0/mcrs · **License:** GPL-2.0
+**Status:** Draft 0.4 · **Repository:** https://github.com/Philip44-0/mcrs · **License:** GPL-2.0
 
 A modular cash register / order system for clubs, voluntary fire brigades and similar events.
 Angular client, Express server, everything except a small skeleton is a replaceable module.
@@ -235,6 +235,22 @@ MCRS cannot start:
   ✖ module "orders" requires "dialog@1" but no installed module provides it
   ✖ capability "storage@1" is provided twice: storage-sqlite, storage-postgres
 ```
+
+### 6.1 Dependency rules
+
+- A capability name includes the major version of its contract: `catalog@1` and `catalog@2` are
+  different capabilities.
+- A capability has exactly one provider, unless **every** provider declares it with
+  `"multi": true`.
+- Everything in `requires` has to be provided by an installed module; otherwise startup stops.
+  `optional` never stops startup.
+- Modules are started so that providers come before the modules that need them. This also applies to
+  optional dependencies that are present. Modules without a relation keep the order of
+  `mcrs.config.json`.
+- A cycle among the `requires` is an error and is reported with its path (`a -> b -> a`). An optional
+  dependency that would close a cycle is ignored, with a warning.
+- A module that requires a capability it provides itself gets a warning, not an error.
+- The checks run when every module could be read. All dependency problems are reported together.
 
 Server module shape:
 
@@ -822,6 +838,7 @@ Container format:
 
 | Version | Changes                                                                                                                                             |
 | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.4     | Added the dependency rules (6.1): capability providers, optional dependencies, start order and cycles.                                              |
 | 0.3     | Added the resolution rules for module sources (4.1).                                                                                                |
 | 0.2     | Added module sources (`path` and `package`) with the trust warning (4.1), environment variables (4.2) and the CI workflow in the repository layout. |
 | 0.1     | First complete draft.                                                                                                                               |
