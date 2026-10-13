@@ -13,7 +13,10 @@ afterEach(async () => {
 });
 
 /** Writes the given files (objects become JSON) into a temporary folder; returns the config path. */
-async function project(files: Record<string, unknown>): Promise<string> {
+async function project(
+  files: Record<string, unknown>,
+  configName = 'mcrs.config.json',
+): Promise<string> {
   const root = await mkdtemp(path.join(tmpdir(), 'mcrs-test-'));
   folders.push(root);
   for (const [name, content] of Object.entries(files)) {
@@ -21,7 +24,7 @@ async function project(files: Record<string, unknown>): Promise<string> {
     await mkdir(path.dirname(file), { recursive: true });
     await writeFile(file, typeof content === 'string' ? content : JSON.stringify(content, null, 2));
   }
-  return path.join(root, 'mcrs.config.json');
+  return path.join(root, configName);
 }
 
 const manifest = (overrides: Record<string, unknown> = {}) => ({
@@ -222,5 +225,131 @@ describe('loadBlueprint', () => {
     const result = await loadBlueprint(config);
 
     expect(result.errors.map((error) => error.path)).toEqual(['provides[2]']);
+  });
+
+  it('loads a module from a folder outside the config folder', async () => {
+    const config = await project(
+      {
+        'app/mcrs.config.json': { modules: [{ id: 'demo', path: '../elsewhere/demo' }] },
+        'elsewhere/demo/module.json': manifest(),
+      },
+      'app/mcrs.config.json',
+    );
+
+    const result = await loadBlueprint(config);
+
+    expect(result.errors).toEqual([]);
+    expect(result.blueprint?.modules[0]?.source).toEqual({
+      kind: 'path',
+      specifier: '../elsewhere/demo',
+    });
+  });
+
+  it('loads a module from an npm package in node_modules', async () => {
+    const config = await project({
+      'mcrs.config.json': { modules: [{ id: 'demo', package: 'mcrs-demo' }] },
+      'node_modules/mcrs-demo/package.json': { name: 'mcrs-demo', version: '1.0.0' },
+      'node_modules/mcrs-demo/module.json': manifest(),
+    });
+
+    const result = await loadBlueprint(config);
+    const loaded = result.blueprint?.modules[0];
+
+    expect(result.errors).toEqual([]);
+    expect(loaded?.source).toEqual({ kind: 'package', specifier: 'mcrs-demo' });
+    expect(loaded?.dir.endsWith(path.join('node_modules', 'mcrs-demo'))).toBe(true);
+  });
+
+  it('loads a module from a scoped npm package', async () => {
+    const config = await project({
+      'mcrs.config.json': { modules: [{ id: 'printer', package: '@acme/mcrs-printer' }] },
+      'node_modules/@acme/mcrs-printer/package.json': {
+        name: '@acme/mcrs-printer',
+        version: '1.0.0',
+      },
+      'node_modules/@acme/mcrs-printer/module.json': manifest({ id: 'printer' }),
+    });
+
+    const result = await loadBlueprint(config);
+
+    expect(result.errors).toEqual([]);
+    expect(result.blueprint?.modules[0]?.id).toBe('printer');
+  });
+
+  it('finds a package in the node_modules of a parent folder', async () => {
+    const config = await project(
+      {
+        'deploy/mcrs.config.json': { modules: [{ id: 'demo', package: 'mcrs-demo' }] },
+        'node_modules/mcrs-demo/package.json': { name: 'mcrs-demo', version: '1.0.0' },
+        'node_modules/mcrs-demo/module.json': manifest(),
+      },
+      'deploy/mcrs.config.json',
+    );
+
+    const result = await loadBlueprint(config);
+
+    expect(result.errors).toEqual([]);
+    expect(result.blueprint?.modules).toHaveLength(1);
+  });
+
+  it('tells how to install a package that is missing', async () => {
+    const config = await project({
+      'mcrs.config.json': { modules: [{ id: 'demo', package: 'mcrs-demo' }] },
+    });
+
+    const result = await loadBlueprint(config);
+
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({ file: config, path: 'modules[0].package' }),
+    );
+    expect(result.errors[0]?.message).toContain('npm install mcrs-demo');
+  });
+
+  it('rejects an invalid package name', async () => {
+    const config = await project({
+      'mcrs.config.json': { modules: [{ id: 'demo', package: 'Not A Package' }] },
+    });
+
+    const result = await loadBlueprint(config);
+
+    expect(result.errors).toContainEqual(expect.objectContaining({ path: 'modules[0].package' }));
+  });
+
+  it('treats a module the same whether it comes from a folder or a package', async () => {
+    const viaPath = await loadBlueprint(
+      await project({
+        'mcrs.config.json': { modules: [demoEntry()] },
+        'modules/demo/module.json': manifest(),
+      }),
+    );
+    const viaPackage = await loadBlueprint(
+      await project({
+        'mcrs.config.json': { modules: [{ id: 'demo', package: 'mcrs-demo' }] },
+        'node_modules/mcrs-demo/package.json': { name: 'mcrs-demo', version: '1.0.0' },
+        'node_modules/mcrs-demo/module.json': manifest(),
+      }),
+    );
+
+    expect(viaPath.errors).toEqual([]);
+    expect(viaPackage.errors).toEqual([]);
+    expect(viaPath.blueprint?.modules[0]?.id).toBe(viaPackage.blueprint?.modules[0]?.id);
+    expect(viaPath.blueprint?.modules[0]?.manifest).toEqual(
+      viaPackage.blueprint?.modules[0]?.manifest,
+    );
+  });
+
+  it('warns when package.json and module.json disagree about the version', async () => {
+    const config = await project({
+      'mcrs.config.json': { modules: [{ id: 'demo', package: 'mcrs-demo' }] },
+      'node_modules/mcrs-demo/package.json': { name: 'mcrs-demo', version: '2.0.0' },
+      'node_modules/mcrs-demo/module.json': manifest({ version: '1.0.0' }),
+    });
+
+    const result = await loadBlueprint(config);
+
+    expect(result.errors).toEqual([]);
+    expect(result.blueprint).not.toBeNull();
+    expect(result.warnings).toContainEqual(expect.objectContaining({ path: 'version' }));
+    expect(result.warnings[0]?.file.endsWith('package.json')).toBe(true);
   });
 });

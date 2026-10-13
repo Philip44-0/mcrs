@@ -27,6 +27,14 @@ if (blueprint === null) {
   process.exit(1);
 }
 
+for (const loaded of blueprint.modules) {
+  const from =
+    loaded.source.kind === 'package'
+      ? `package ${loaded.source.specifier}`
+      : `folder ${loaded.source.specifier}`;
+  console.log(`  module ${loaded.id}@${loaded.manifest.version} (${from})`);
+}
+
 // The environment variable PORT overrides the port from mcrs.config.json.
 const raw = process.env.PORT ?? String(blueprint.config.port);
 const port = Number.parseInt(raw, 10);

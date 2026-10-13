@@ -3,6 +3,9 @@ import type { SchemaObject } from 'ajv';
 /** Module ids: lowercase letters, digits and hyphens. */
 export const ID_PATTERN = '^[a-z0-9][a-z0-9-]*$';
 
+/** npm package names (lowercase, optionally scoped): "mcrs-printer" or "@acme/mcrs-printer". */
+export const PACKAGE_PATTERN = '^(@[a-z0-9][a-z0-9._~-]*/)?[a-z0-9][a-z0-9._~-]*$';
+
 /** Capabilities: name@major, for example "storage@1" or "output.target@1". */
 export const CAPABILITY_PATTERN = '^[a-z][a-z0-9.-]*@[0-9]+$';
 
@@ -22,7 +25,7 @@ export const configSchema: SchemaObject = {
         properties: {
           id: { type: 'string', pattern: ID_PATTERN },
           path: { type: 'string', minLength: 1 },
-          package: { type: 'string', minLength: 1 },
+          package: { type: 'string', pattern: PACKAGE_PATTERN },
           config: { type: 'object' },
         },
         required: ['id'],

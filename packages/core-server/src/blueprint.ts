@@ -2,6 +2,7 @@ import path from 'node:path';
 import type { McrsConfig, ModuleManifest } from '@mcrs/shared';
 import type { Problem } from './problems';
 import { readJsonFile } from './read-json';
+import { resolveModuleDir, type ModuleSource } from './resolve-module';
 import { validateConfig, validateManifest, validateModuleConfig } from './validate';
 
 export interface LoadedModule {
@@ -13,6 +14,8 @@ export interface LoadedModule {
   manifest: ModuleManifest;
   /** The module's config block, validated, with defaults applied. */
   config: Record<string, unknown>;
+  /** Where the module came from. For messages only; the module's identity is its id and version. */
+  source: ModuleSource;
 }
 
 /** Everything that was read from mcrs.config.json and the module.json files. */
@@ -31,6 +34,7 @@ export interface BlueprintResult {
 
 /**
  * Reads mcrs.config.json and the module.json of every listed module and validates them.
+ * Modules can come from a folder (`path`) or from an npm package (`package`).
  * All problems are collected, so the caller can report them in one go.
  */
 export async function loadBlueprint(configFile: string): Promise<BlueprintResult> {
@@ -53,17 +57,12 @@ export async function loadBlueprint(configFile: string): Promise<BlueprintResult
   for (const [index, entry] of config.modules.entries()) {
     const where = `modules[${index}]`;
 
-    if (entry.package !== undefined) {
-      errors.push({
-        file,
-        path: `${where}.package`,
-        message:
-          'npm package sources are not supported yet (see the issue "Load modules from anywhere")',
-      });
+    const resolved = await resolveModuleDir(entry, baseDir);
+    if (!resolved.ok) {
+      errors.push({ file, path: `${where}.${resolved.path}`, message: resolved.message });
       continue;
     }
-
-    const dir = path.resolve(baseDir, entry.path as string);
+    const { dir, source } = resolved.value;
     const manifestFile = path.join(dir, 'module.json');
 
     const manifestRead = await readJsonFile(manifestFile);
@@ -90,6 +89,21 @@ export async function loadBlueprint(configFile: string): Promise<BlueprintResult
       continue;
     }
 
+    if (source.kind === 'package') {
+      const packageFile = path.join(dir, 'package.json');
+      const packageRead = await readJsonFile(packageFile);
+      const packageVersion = packageRead.ok
+        ? (packageRead.value as { version?: unknown } | null)?.version
+        : undefined;
+      if (typeof packageVersion === 'string' && packageVersion !== manifest.value.version) {
+        warnings.push({
+          file: packageFile,
+          path: 'version',
+          message: `is "${packageVersion}", but module.json says "${manifest.value.version}" (the version in module.json is the one that counts)`,
+        });
+      }
+    }
+
     const moduleConfig = validateModuleConfig(
       file,
       manifest.value,
@@ -106,6 +120,7 @@ export async function loadBlueprint(configFile: string): Promise<BlueprintResult
       manifestFile,
       manifest: manifest.value,
       config: moduleConfig.value,
+      source,
     });
   }
 
