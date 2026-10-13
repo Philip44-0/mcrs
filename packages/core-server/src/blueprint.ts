@@ -1,6 +1,7 @@
 import path from 'node:path';
 import type { McrsConfig, ModuleManifest } from '@mcrs/shared';
 import type { Problem } from './problems';
+import { planModules } from './plan';
 import { readJsonFile } from './read-json';
 import { resolveModuleDir, type ModuleSource } from './resolve-module';
 import { validateConfig, validateManifest, validateModuleConfig } from './validate';
@@ -22,7 +23,12 @@ export interface LoadedModule {
 export interface Blueprint {
   configFile: string;
   config: McrsConfig;
+  /** The modules in the order of mcrs.config.json. */
   modules: LoadedModule[];
+  /** The modules in the order they have to be started: providers before the modules that need them. */
+  loadOrder: LoadedModule[];
+  /** Every provided capability with the ids of the modules that provide it. */
+  capabilities: Map<string, string[]>;
 }
 
 export interface BlueprintResult {
@@ -35,6 +41,7 @@ export interface BlueprintResult {
 /**
  * Reads mcrs.config.json and the module.json of every listed module and validates them.
  * Modules can come from a folder (`path`) or from an npm package (`package`).
+ * Then it checks that every capability a module needs is provided and works out the start order.
  * All problems are collected, so the caller can report them in one go.
  */
 export async function loadBlueprint(configFile: string): Promise<BlueprintResult> {
@@ -124,8 +131,23 @@ export async function loadBlueprint(configFile: string): Promise<BlueprintResult
     });
   }
 
+  // Dependencies are only checked when every module was read, otherwise one broken module would
+  // also show up as "missing" for everything that needs it.
+  if (errors.length > 0) return { blueprint: null, errors, warnings };
+
+  const plan = planModules(modules);
+  errors.push(...plan.errors);
+  warnings.push(...plan.warnings);
+  if (errors.length > 0) return { blueprint: null, errors, warnings };
+
   return {
-    blueprint: errors.length === 0 ? { configFile: file, config, modules } : null,
+    blueprint: {
+      configFile: file,
+      config,
+      modules,
+      loadOrder: plan.order,
+      capabilities: plan.capabilities,
+    },
     errors,
     warnings,
   };

@@ -5,3 +5,5 @@ export type { Problem } from './problems';
 export { configSchema, manifestSchema } from './schemas';
 export { CORE_API_VERSION } from './validate';
 export type { ModuleSource } from './resolve-module';
+export { planModules } from './plan';
+export type { Plan } from './plan';

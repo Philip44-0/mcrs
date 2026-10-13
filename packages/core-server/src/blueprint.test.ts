@@ -352,4 +352,38 @@ describe('loadBlueprint', () => {
     expect(result.warnings).toContainEqual(expect.objectContaining({ path: 'version' }));
     expect(result.warnings[0]?.file.endsWith('package.json')).toBe(true);
   });
+
+  it('orders the modules so that providers start first', async () => {
+    const config = await project({
+      'mcrs.config.json': {
+        modules: [
+          { id: 'stock', path: 'modules/stock' },
+          { id: 'catalog', path: 'modules/catalog' },
+        ],
+      },
+      'modules/stock/module.json': manifest({ id: 'stock', requires: ['catalog@1'] }),
+      'modules/catalog/module.json': manifest({ id: 'catalog', provides: ['catalog@1'] }),
+    });
+
+    const result = await loadBlueprint(config);
+
+    expect(result.errors).toEqual([]);
+    expect(result.blueprint?.modules.map((module) => module.id)).toEqual(['stock', 'catalog']);
+    expect(result.blueprint?.loadOrder.map((module) => module.id)).toEqual(['catalog', 'stock']);
+    expect(result.blueprint?.capabilities.get('catalog@1')).toEqual(['catalog']);
+  });
+
+  it('reports a requirement that no installed module provides', async () => {
+    const config = await project({
+      'mcrs.config.json': { modules: [{ id: 'stock', path: 'modules/stock' }] },
+      'modules/stock/module.json': manifest({ id: 'stock', requires: ['catalog@1'] }),
+    });
+
+    const result = await loadBlueprint(config);
+
+    expect(result.blueprint).toBeNull();
+    expect(result.errors).toContainEqual(expect.objectContaining({ path: 'requires[0]' }));
+    expect(result.errors[0]?.file.endsWith('module.json')).toBe(true);
+    expect(result.errors[0]?.message).toContain('"catalog@1"');
+  });
 });

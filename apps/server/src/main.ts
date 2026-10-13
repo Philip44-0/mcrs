@@ -27,7 +27,7 @@ if (blueprint === null) {
   process.exit(1);
 }
 
-for (const loaded of blueprint.modules) {
+for (const loaded of blueprint.loadOrder) {
   const from =
     loaded.source.kind === 'package'
       ? `package ${loaded.source.specifier}`
