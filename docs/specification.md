@@ -1,6 +1,6 @@
 # MCRS – Modular Cash Register System: Specification
 
-**Status:** Draft 0.4 · **Repository:** https://github.com/Philip44-0/mcrs · **License:** GPL-2.0
+**Status:** Draft 0.5 · **Repository:** https://github.com/Philip44-0/mcrs · **License:** GPL-2.0
 
 A modular cash register / order system for clubs, voluntary fire brigades and similar events.
 Angular client, Express server, everything except a small skeleton is a replaceable module.
@@ -219,7 +219,7 @@ Startup sequence (server):
 3. Build the capability map. Check that all `requires` are satisfied and that no single-provider capability has two providers.
 4. Detect dependency cycles; sort topologically.
 5. Compute fingerprints (section 9).
-6. **Freeze the registry.** From here on the module list cannot change.
+6. **Freeze the registry.** From here on the module list cannot change. Registering a module afterwards throws a `RegistryFrozenError`.
 7. For each module in order: `register(ctx)` (declare routes, hooks, event listeners, collections, client settings).
 8. Run collection migrations through the storage provider.
 9. For each module in order: `start(ctx)`.
@@ -455,6 +455,18 @@ lines   = sorted( "<id>@<version>" for each module )      // by id
 fp      = sha256( "mcrs-fp1\n" + lines.join("\n") )       // hex
 display = first 12 hex characters
 ```
+
+Details that make the result identical on every machine:
+
+- The lines are sorted by module id, comparing code unit by code unit (not locale-aware). This is
+  not the same as sorting the whole lines: `stock-x@1.0.0` would come before `stock@1.0.0`, because
+  `-` is smaller than `@`.
+- Lines are joined with `\n` without a trailing newline, the text is encoded as UTF-8, and the hash
+  is written as lowercase hex. A list without modules hashes only the prefix `mcrs-fp1\n`.
+- The algorithm lives in `packages/shared`, including a SHA-256 written in plain TypeScript. Browsers
+  only offer `crypto.subtle` on HTTPS or localhost, and a phone on a plain-HTTP local network has
+  neither. Server and client therefore run exactly the same code.
+- Where a module comes from (folder or package) does not matter, only its `id` and `version`.
 
 Two values are computed from the same config:
 
@@ -838,6 +850,7 @@ Container format:
 
 | Version | Changes                                                                                                                                             |
 | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.5     | Fingerprint details (sorting, encoding, shared SHA-256) and the registry freeze (6, 9).                                                             |
 | 0.4     | Added the dependency rules (6.1): capability providers, optional dependencies, start order and cycles.                                              |
 | 0.3     | Added the resolution rules for module sources (4.1).                                                                                                |
 | 0.2     | Added module sources (`path` and `package`) with the trust warning (4.1), environment variables (4.2) and the CI workflow in the repository layout. |
