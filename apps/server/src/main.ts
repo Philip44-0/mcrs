@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { formatProblem, loadBlueprint } from '@mcrs/core-server';
+import { formatProblem, loadBlueprint, ModuleRegistry, shortFingerprint } from '@mcrs/core-server';
 import { createApp } from './app.js';
 
 /** MCRS_CONFIG if set, otherwise the first mcrs.config.json found in this or a parent folder. */
@@ -27,13 +27,20 @@ if (blueprint === null) {
   process.exit(1);
 }
 
-for (const loaded of blueprint.loadOrder) {
+// From here on the list of modules cannot change (changing modules means a restart).
+const registry = ModuleRegistry.fromBlueprint(blueprint);
+
+for (const loaded of registry.modules) {
   const from =
     loaded.source.kind === 'package'
       ? `package ${loaded.source.specifier}`
       : `folder ${loaded.source.specifier}`;
   console.log(`  module ${loaded.id}@${loaded.manifest.version} (${from})`);
 }
+
+console.log(
+  `  fingerprint ${shortFingerprint(registry.fingerprint)}, client ${shortFingerprint(registry.clientFingerprint)}`,
+);
 
 // The environment variable PORT overrides the port from mcrs.config.json.
 const raw = process.env.PORT ?? String(blueprint.config.port);

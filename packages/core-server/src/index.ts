@@ -7,3 +7,5 @@ export { CORE_API_VERSION } from './validate';
 export type { ModuleSource } from './resolve-module';
 export { planModules } from './plan';
 export type { Plan } from './plan';
+export { ModuleRegistry, RegistryFrozenError } from './registry';
+export { shortFingerprint } from '@mcrs/shared';
