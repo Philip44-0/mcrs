@@ -1,6 +1,14 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { formatProblem, loadBlueprint, ModuleRegistry, shortFingerprint } from '@mcrs/core-server';
+import {
+  createLogger,
+  formatProblem,
+  handleShutdownSignals,
+  loadBlueprint,
+  ModuleHost,
+  ModuleRegistry,
+  shortFingerprint,
+} from '@mcrs/core-server';
 import { createApp } from './app.js';
 
 /** MCRS_CONFIG if set, otherwise the first mcrs.config.json found in this or a parent folder. */
@@ -16,6 +24,8 @@ function findConfigFile(): string {
     dir = parent;
   }
 }
+
+const log = createLogger('mcrs');
 
 const { blueprint, errors, warnings } = await loadBlueprint(findConfigFile());
 
@@ -35,27 +45,44 @@ for (const loaded of registry.modules) {
     loaded.source.kind === 'package'
       ? `package ${loaded.source.specifier}`
       : `folder ${loaded.source.specifier}`;
-  console.log(`  module ${loaded.id}@${loaded.manifest.version} (${from})`);
+  log.info(`module ${loaded.id}@${loaded.manifest.version} (${from})`);
 }
-
-console.log(
-  `  fingerprint ${shortFingerprint(registry.fingerprint)}, client ${shortFingerprint(registry.clientFingerprint)}`,
+log.info(
+  `fingerprint ${shortFingerprint(registry.fingerprint)}, client ${shortFingerprint(registry.clientFingerprint)}`,
 );
+
+// Load, register and start the modules. The storage migrations will run between register and start.
+const host = new ModuleHost(registry, {
+  dataDir: path.resolve(path.dirname(blueprint.configFile), blueprint.config.dataDir),
+});
+try {
+  await host.start();
+} catch (error) {
+  console.error('MCRS cannot start:');
+  console.error(`  x ${error instanceof Error ? error.message : String(error)}`);
+  process.exit(1);
+}
 
 // The environment variable PORT overrides the port from mcrs.config.json.
 const raw = process.env.PORT ?? String(blueprint.config.port);
 const port = Number.parseInt(raw, 10);
 if (!Number.isInteger(port) || port < 1 || port > 65535) {
   console.error(`Invalid PORT: "${raw}"`);
+  await host.stop();
   process.exit(1);
 }
 
-createApp().listen(port, (error?: Error) => {
+const server = createApp().listen(port, (error?: Error) => {
   if (error) {
     console.error(`Cannot listen on port ${port}:`, error.message);
-    process.exit(1);
+    void host.stop().finally(() => process.exit(1));
+    return;
   }
-  console.log(
-    `MCRS server listening on http://localhost:${port} (${blueprint.modules.length} module(s) loaded)`,
-  );
+  log.info(`listening on http://localhost:${port}`);
+});
+
+// Ctrl+C or a stop signal: stop accepting requests, then stop the modules in reverse order.
+handleShutdownSignals(async () => {
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+  await host.stop();
 });
