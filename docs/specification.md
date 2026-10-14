@@ -1,6 +1,6 @@
 # MCRS – Modular Cash Register System: Specification
 
-**Status:** Draft 0.5 · **Repository:** https://github.com/Philip44-0/mcrs · **License:** GPL-2.0
+**Status:** Draft 0.6 · **Repository:** https://github.com/Philip44-0/mcrs · **License:** GPL-2.0
 
 A modular cash register / order system for clubs, voluntary fire brigades and similar events.
 Angular client, Express server, everything except a small skeleton is a replaceable module.
@@ -252,29 +252,62 @@ MCRS cannot start:
 - A module that requires a capability it provides itself gets a warning, not an error.
 - The checks run when every module could be read. All dependency problems are reported together.
 
-Server module shape:
+### 6.2 Server modules, lifecycle and shutdown
 
 ```ts
 export interface ServerModule {
-  register(ctx: ModuleContext): void | Promise<void>;
-  start?(ctx: ModuleContext): void | Promise<void>;
-  stop?(ctx: ModuleContext): void | Promise<void>;
+  register(context: ModuleContext): void | Promise<void>; // required
+  start?(context: ModuleContext): void | Promise<void>;
+  stop?(context: ModuleContext): void | Promise<void>;
 }
 
 export interface ModuleContext {
-  id: string;
-  config: unknown; // validated config block
-  log: Logger;
-  routes: RouteRegistry; // routes.add({ method, path, access, handler })
-  events: EventBus;
-  hooks: HookRegistry;
-  capabilities: {
-    provide<T>(name: string, impl: T): void;
-    get<T>(name: string): T; // required capability, throws at startup if missing
-    tryGet<T>(name: string): T | undefined; // optional capability
+  readonly id: string;
+  readonly config: Readonly<Record<string, unknown>>; // validated config block, with defaults, read-only
+  readonly dataDir: string; // absolute path of the data directory
+  readonly log: Logger; // every line starts with [<id>]
+  readonly routes: RouteRegistry; // routes.add({ method, path, access, handler })
+  readonly events: EventBus;
+  readonly hooks: HookRegistry;
+  readonly capabilities: {
+    provide<T>(name: string, implementation: T): void; // only inside register(), only what "provides" declares
+    get<T>(name: string): T; // listed in "requires"; throws when there are several providers
+    tryGet<T>(name: string): T | undefined; // listed in "requires" or "optional"
+    getAll<T>(name: string): T[]; // all providers (for multi capabilities)
   };
 }
 ```
+
+**Entry file.** The server part of a module is the first of these files that exists in the module
+folder: `server/index.js`, `server/index.mjs`, `server/index.ts`. Built JavaScript wins over
+TypeScript source, and TypeScript needs a runtime that can run it (`tsx` in development). The entry
+exports the module as default export, or as named exports `register`, `start` and `stop`.
+`register` is required. Modules without a server part (`parts` has no `"server"`) are skipped.
+
+**Order.**
+
+1. Load: every server part is imported. A broken entry is found before any module code runs.
+2. `register(context)` in dependency order.
+3. The migrations (the storage module's collections), once, after all modules registered.
+4. `start(context)` in dependency order.
+5. On shutdown: `stop(context)` in the reverse of the start order.
+
+**Capabilities.** A module may only provide what its `module.json` declares, only inside
+`register()`, and has to provide everything it declares. It may only ask for capabilities it lists in
+`requires` (`get`) or `requires` / `optional` (`tryGet`, `getAll`). A provider is always registered
+before the modules that need it, so `get()` works in `register()` as well as in `start()`.
+
+**Errors.** An error in any phase aborts the startup. The message names the module and the phase,
+for example `module "stock" failed in start(): ...`, the modules that already started are stopped
+again in reverse order, and the process exits with code 1.
+
+**Shutdown.** On `SIGINT` (Ctrl+C) or `SIGTERM` the server stops accepting connections and then
+stops the modules in reverse start order. A module that takes longer than 10 seconds to stop is
+given up on, and an error in one `stop()` does not keep the others from stopping. A second signal
+during the shutdown ends the process immediately.
+
+`routes`, `events` and `hooks` have their final shape in the context, but they are completed in their
+own issues. Until then they throw an error that names the issue.
 
 ---
 
@@ -850,6 +883,7 @@ Container format:
 
 | Version | Changes                                                                                                                                             |
 | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.6     | Server module entry, lifecycle order, capability rules, error handling and shutdown (6.2); `dataDir` and `getAll` in the module context.            |
 | 0.5     | Fingerprint details (sorting, encoding, shared SHA-256) and the registry freeze (6, 9).                                                             |
 | 0.4     | Added the dependency rules (6.1): capability providers, optional dependencies, start order and cycles.                                              |
 | 0.3     | Added the resolution rules for module sources (4.1).                                                                                                |
