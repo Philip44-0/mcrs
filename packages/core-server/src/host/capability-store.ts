@@ -1,5 +1,5 @@
-import type { LoadedModule } from './blueprint';
-import type { CapabilityAccess } from './context';
+import type { LoadedModule } from '../blueprint';
+import type { CapabilityAccess } from '../module-api';
 
 interface Entry {
   moduleId: string;

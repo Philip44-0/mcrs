@@ -1,6 +1,6 @@
 import { fingerprintOf } from '@mcrs/shared';
 import { describe, expect, it } from 'vitest';
-import type { Blueprint, LoadedModule } from './blueprint';
+import type { Blueprint, LoadedModule } from '../blueprint';
 import { ModuleRegistry, RegistryFrozenError } from './registry';
 
 function mod(

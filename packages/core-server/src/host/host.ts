@@ -1,5 +1,5 @@
 import { CapabilityStore } from './capability-store';
-import type { LoadedModule } from './blueprint';
+import type { LoadedModule } from '../blueprint';
 import {
   pendingEvents,
   pendingHooks,
@@ -9,10 +9,10 @@ import {
   type ModuleContext,
   type RouteRegistry,
   type ServerModule,
-} from './context';
-import { createLogger, type LogSink, type Logger } from './logger';
+} from '../module-api';
+import { createLogger, type LogSink, type Logger } from '../common';
 import { loadServerModule } from './load-module';
-import type { ModuleRegistry } from './registry';
+import type { ModuleRegistry } from '../registry';
 
 export type Phase = 'load' | 'register' | 'migrate' | 'start' | 'stop';
 

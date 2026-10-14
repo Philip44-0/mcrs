@@ -1,7 +1,7 @@
 import path from 'node:path';
 import type { McrsConfig, ModuleManifest } from '@mcrs/shared';
-import type { Problem } from './problems';
-import { planModules } from './plan';
+import type { Problem } from '../common';
+import { planModules } from '../plan';
 import { readJsonFile } from './read-json';
 import { resolveModuleDir, type ModuleSource } from './resolve-module';
 import { validateConfig, validateManifest, validateModuleConfig } from './validate';

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { LoadedModule } from './blueprint';
-import type { ModuleContext, ServerModule } from './context';
+import type { LoadedModule } from '../blueprint';
+import type { ModuleContext, ServerModule } from '../module-api';
 import { ModuleError, ModuleHost, type HostOptions } from './host';
-import type { LogSink } from './logger';
-import { ModuleRegistry } from './registry';
+import type { LogSink } from '../common';
+import { ModuleRegistry } from '../registry';
 
 type Deps = {
   provides?: Array<string | { name: string; multi?: boolean }>;

@@ -2,7 +2,7 @@ import Ajv from 'ajv';
 import type { ErrorObject, SchemaObject } from 'ajv';
 import semver from 'semver';
 import type { McrsConfig, ModuleEntry, ModuleManifest } from '@mcrs/shared';
-import { pointerToPath, type Problem } from './problems';
+import { pointerToPath, type Problem } from '../common';
 import { CAPABILITY_PATTERN, configSchema, manifestSchema } from './schemas';
 
 /** The version of the skeleton API. A module's `mcrs` range has to include it. */

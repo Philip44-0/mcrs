@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { LoadedModule } from './blueprint';
+import type { LoadedModule } from '../blueprint';
 import { planModules } from './plan';
 
 type Deps = {

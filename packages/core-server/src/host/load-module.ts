@@ -1,8 +1,8 @@
 import { access } from 'node:fs/promises';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { LoadedModule } from './blueprint';
-import type { ServerModule } from './context';
+import type { LoadedModule } from '../blueprint';
+import type { ServerModule } from '../module-api';
 
 /**
  * Where the server part of a module lives, in the order they are tried:

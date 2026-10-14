@@ -1,4 +1,4 @@
-import type { Logger } from './logger';
+import type { Logger } from '../common';
 
 /**
  * What a module gets in `register()`, `start()` and `stop()`.

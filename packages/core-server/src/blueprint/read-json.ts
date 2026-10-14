@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises';
-import type { Problem } from './problems';
+import type { Problem } from '../common';
 
 export type JsonReadResult = { ok: true; value: unknown } | { ok: false; problem: Problem };
 

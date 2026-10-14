@@ -1,4 +1,4 @@
-import { createLogger, type LogSink } from './logger';
+import { createLogger, type LogSink } from '../common';
 
 export interface ShutdownOptions {
   /** Default: SIGINT (Ctrl+C) and SIGTERM. */

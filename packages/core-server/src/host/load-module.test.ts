@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { LoadedModule } from './blueprint';
+import type { LoadedModule } from '../blueprint';
 import { findServerEntry, loadServerModule } from './load-module';
 
 const folders: string[] = [];

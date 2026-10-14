@@ -1,9 +1,9 @@
 import { EventEmitter } from 'node:events';
 import { describe, expect, it } from 'vitest';
-import type { LoadedModule } from './blueprint';
-import { ModuleHost } from './host';
-import type { LogSink } from './logger';
-import { ModuleRegistry } from './registry';
+import type { LoadedModule } from '../blueprint';
+import { ModuleHost } from '../host';
+import type { LogSink } from '../common';
+import { ModuleRegistry } from '../registry';
 import { handleShutdownSignals } from './shutdown';
 
 const silent: LogSink = { debug() {}, info() {}, warn() {}, error() {} };

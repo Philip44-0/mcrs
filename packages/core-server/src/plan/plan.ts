@@ -1,5 +1,5 @@
-import type { LoadedModule } from './blueprint';
-import type { Problem } from './problems';
+import type { LoadedModule } from '../blueprint';
+import type { Problem } from '../common';
 
 export interface Plan {
   /** The modules in the order they have to be started. Empty when there are errors. */

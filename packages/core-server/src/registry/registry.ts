@@ -1,5 +1,5 @@
 import { computeFingerprints } from '@mcrs/shared';
-import type { Blueprint, LoadedModule } from './blueprint';
+import type { Blueprint, LoadedModule } from '../blueprint';
 
 /** Thrown when a module is registered after the registry was frozen. */
 export class RegistryFrozenError extends Error {
