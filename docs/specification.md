@@ -1,6 +1,6 @@
 # MCRS – Modular Cash Register System: Specification
 
-**Status:** Draft 0.6 · **Repository:** https://github.com/Philip44-0/mcrs · **License:** GPL-2.0
+**Status:** Draft 0.7 · **Repository:** https://github.com/Philip44-0/mcrs · **License:** GPL-2.0
 
 A modular cash register / order system for clubs, voluntary fire brigades and similar events.
 Angular client, Express server, everything except a small skeleton is a replaceable module.
@@ -267,8 +267,8 @@ export interface ModuleContext {
   readonly dataDir: string; // absolute path of the data directory
   readonly log: Logger; // every line starts with [<id>]
   readonly routes: RouteRegistry; // routes.add({ method, path, access, handler })
-  readonly events: EventBus;
-  readonly hooks: HookRegistry;
+  readonly events: ModuleEvents; // listen, emit, outbox
+  readonly hooks: ModuleHooks; // guard, filter, runGuards, applyFilters
   readonly capabilities: {
     provide<T>(name: string, implementation: T): void; // only inside register(), only what "provides" declares
     get<T>(name: string): T; // listed in "requires"; throws when there are several providers
@@ -306,8 +306,8 @@ stops the modules in reverse start order. A module that takes longer than 10 sec
 given up on, and an error in one `stop()` does not keep the others from stopping. A second signal
 during the shutdown ends the process immediately.
 
-`routes`, `events` and `hooks` have their final shape in the context, but they are completed in their
-own issues. Until then they throw an error that names the issue.
+`routes` has its final shape in the context, but it is completed in its own issue. Until then it
+throws an error that names the issue.
 
 ---
 
@@ -433,33 +433,82 @@ Orders store a **snapshot** of item name and price on every line, taken through 
 ## 8. Events and hooks
 
 ```ts
-ctx.events.on('orders.order.sent', async (e) => {
+// events: tell others what happened
+const stop = ctx.events.on('orders.order.sent', async (order) => {
   /* react */
-});
+}); // returns an unsubscribe function
 ctx.events.emit('stock.changed', { itemId, quantity });
 
+// hooks: take part in what others do
 ctx.hooks.guard(
   'orders.order.sending',
-  async (payload, tx) => {
+  async (order, tx) => {
     // throw new Reject('stock.soldOut', { itemId }) to abort the whole action
   },
   { priority: 100 },
 );
-
 ctx.hooks.filter('catalog.items.list', (items, req) => items.map(markSoldOut));
+
+// the module that owns an action or a filter point runs them
+await ctx.hooks.runGuards('orders.order.sending', order, tx);
+const visible = ctx.hooks.applyFilters('catalog.items.list', items, req);
 ```
 
-### Naming
+### Naming and ownership
 
-`<moduleId>.<noun>.<verb>`. Events use the past tense (`orders.order.sent`), guards the present participle (`orders.order.sending`), filters describe the data (`catalog.items.list`). Third-party modules may define their own hooks and events under their own id. Payload types are declared in `packages/shared/contracts/events.ts`.
+`<moduleId>.<noun>.<verb>` or `<moduleId>.<verb>`, with lowercase letters, digits and hyphens.
+Events use the past tense (`orders.order.sent`), guards the present participle
+(`orders.order.sending`), filters describe the data (`catalog.items.list`).
+
+- A module may **listen to** any event and **add** guards and filters for any name.
+- A module may only **emit** events and **run** guards and filters whose name starts with its own id.
+  `stock` cannot emit `orders.order.sent`. The check happens when the call is made.
 
 ### Semantics
 
-| Kind       | Delivery                                                            | Failure behaviour                                                                             |
-| ---------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| **Event**  | In-process, asynchronous, **after** the transaction commits         | A failing listener is logged and never affects the emitter or other listeners                 |
-| **Guard**  | Awaited in priority order **inside** the transaction; receives `tx` | Any rejection aborts the action and rolls everything back; the client gets the rejection code |
-| **Filter** | Synchronous chain in priority order                                 | An exception is logged; the unfiltered value is passed on                                     |
+| Kind       | Delivery                                                                                                                          | Failure behaviour                                                                                                                                                                                                   |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Event**  | In-process and asynchronous: `emit()` returns at once, listeners are called afterwards, all of them, in the order they were added | A listener that throws or rejects is logged (with the module and the event) and ignored. It never affects the sender or the other listeners.                                                                        |
+| **Guard**  | Awaited one after the other, in priority order, **inside** the transaction; receives the payload and `tx`                         | A `Reject` aborts the action and is thrown to the code that runs the guards, which rolls back. Any other error also aborts, as a `HookError` that names the module (a broken guard must not let an action through). |
+| **Filter** | Synchronous chain, in priority order                                                                                              | A filter that throws is logged and skipped; the value is passed on unchanged. A filter that returns a promise is logged and ignored.                                                                                |
+
+**Priority.** Lower numbers run first, the default is 100, hooks with the same priority run in the
+order they were added.
+
+**After the commit.** The bus knows nothing about transactions. Code that emits inside a transaction
+collects the events in an _outbox_ and announces them once the transaction committed:
+
+```ts
+const outbox = ctx.events.outbox();
+await storage.transaction(async (tx) => {
+  await ctx.hooks.runGuards('orders.order.sending', order, tx);
+  // ... write the order ...
+  outbox.emit('orders.order.sent', order);
+});
+outbox.flush(); // not reached when the transaction failed, so nothing is announced
+```
+
+**Shutdown.** Before the modules are stopped, the server waits for listeners that are still running.
+
+### Rejecting an action
+
+```ts
+import { Reject } from '@mcrs/shared';
+throw new Reject('stock.soldOut', { itemId });
+```
+
+The code is what the client sees. `instanceof Reject` does not depend on which copy of
+`@mcrs/shared` created the error (modules are loaded from outside the server bundle and may carry
+their own copy), because the check looks for a marker (`Symbol.for('mcrs.reject')`) and not for the
+class itself.
+
+### Typed payloads
+
+`packages/shared` declares the payloads that are known in three interfaces: `EventPayloads`,
+`GuardPayloads` and `FilterValues`. A name that is listed there gets its payload type checked; any
+other name is allowed with an `unknown` payload, so modules written by someone else can define their
+own events. The shapes in the catalogue are drafts; the module that owns a name defines the final
+shape.
 
 ### Catalogue v1
 
@@ -883,6 +932,7 @@ Container format:
 
 | Version | Changes                                                                                                                                             |
 | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.7     | Events and hooks (8): ownership rules, priority, outbox, `Reject`, typed payloads; `ModuleEvents` and `ModuleHooks` in the context (6.2).           |
 | 0.6     | Server module entry, lifecycle order, capability rules, error handling and shutdown (6.2); `dataDir` and `getAll` in the module context.            |
 | 0.5     | Fingerprint details (sorting, encoding, shared SHA-256) and the registry freeze (6, 9).                                                             |
 | 0.4     | Added the dependency rules (6.1): capability providers, optional dependencies, start order and cycles.                                              |
