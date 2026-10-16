@@ -1,10 +1,11 @@
+import type { EmitArgs, FilterValueOf, GuardPayloadOf, PayloadOf } from '@mcrs/shared';
 import type { Logger } from '../common';
 
 /**
  * What a module gets in `register()`, `start()` and `stop()`.
  *
- * `events`, `hooks` and `routes` have their final shape here, but they are completed in their own
- * issues. Until then they throw an error that names the issue.
+ * `routes` has its final shape here, but it is completed in its own issue. Until then it throws an
+ * error that names the issue.
  */
 export interface ModuleContext {
   readonly id: string;
@@ -14,8 +15,8 @@ export interface ModuleContext {
   readonly dataDir: string;
   readonly log: Logger;
   readonly routes: RouteRegistry;
-  readonly events: EventBus;
-  readonly hooks: HookRegistry;
+  readonly events: ModuleEvents;
+  readonly hooks: ModuleHooks;
   readonly capabilities: CapabilityAccess;
 }
 
@@ -37,24 +38,67 @@ export interface CapabilityAccess {
   getAll<T>(name: string): T[];
 }
 
-/** Completed in the issue "Say it with events, guard with hooks". */
-export interface EventBus {
-  on(name: string, handler: (payload: unknown) => void | Promise<void>): void;
-  emit(name: string, payload?: unknown): void;
+/** What a module can do with events: listen, and announce what happened. */
+export interface ModuleEvents {
+  /** Listens to an event. Returns a function that removes the listener again. */
+  on<N extends string>(
+    name: N,
+    handler: (payload: PayloadOf<N>) => void | Promise<void>,
+  ): () => void;
+  /**
+   * Announces that something happened. Listeners are called asynchronously, and a listener that
+   * fails never affects the caller. Only for events that start with the module's own id.
+   */
+  emit<N extends string>(name: N, ...payload: EmitArgs<N>): void;
+  /** Collects events during a transaction. Call `flush()` after the commit, or `discard()` on rollback. */
+  outbox(): EventOutbox;
 }
 
-/** Completed in the issue "Say it with events, guard with hooks". */
-export interface HookRegistry {
-  guard(
-    name: string,
-    handler: (payload: unknown, transaction?: unknown) => void | Promise<void>,
-    options?: { priority?: number },
-  ): void;
-  filter<T>(
-    name: string,
-    handler: (value: T, ...context: unknown[]) => T,
-    options?: { priority?: number },
-  ): void;
+export interface EventOutbox {
+  emit<N extends string>(name: N, ...payload: EmitArgs<N>): void;
+  /** Announces the collected events. Do this after the transaction committed. */
+  flush(): void;
+  /** Drops the collected events (the transaction was rolled back). */
+  discard(): void;
+}
+
+export interface HookOptions {
+  /** Lower numbers run first. Default 100. Hooks with the same priority run in registration order. */
+  priority?: number;
+}
+
+/** What a module can do with hooks: add guards and filters, and run its own. */
+export interface ModuleHooks {
+  /**
+   * Adds a guard: a check that runs before an action, inside its transaction. Throw
+   * `new Reject(code, details)` to refuse the action. Returns a function that removes the guard.
+   */
+  guard<N extends string>(
+    name: N,
+    handler: (payload: GuardPayloadOf<N>, transaction: unknown) => void | Promise<void>,
+    options?: HookOptions,
+  ): () => void;
+  /**
+   * Adds a filter: a synchronous function that may change a value on its way through. If it throws,
+   * the value is passed on unchanged. Returns a function that removes the filter.
+   */
+  filter<N extends string>(
+    name: N,
+    handler: (value: FilterValueOf<N>, ...context: unknown[]) => FilterValueOf<N>,
+    options?: HookOptions,
+  ): () => void;
+  /** Runs the guards of one of the module's own actions. Throws the first `Reject`. */
+  runGuards<N extends string>(
+    name: N,
+    payload: GuardPayloadOf<N>,
+    transaction?: unknown,
+  ): Promise<void>;
+  /** Passes a value through the filters of one of the module's own filter points. */
+  applyFilters<N extends string>(
+    name: N,
+    value: FilterValueOf<N>,
+    ...context: unknown[]
+  ): FilterValueOf<N>;
 }
 
 export type RouteAccess = 'public' | 'authenticated' | { roles: string[] };
@@ -76,16 +120,6 @@ export interface RouteRegistry {
 function pending(what: string, issue: string): never {
   throw new Error(`${what} is not available yet (it is built in the issue "${issue}")`);
 }
-
-export const pendingEvents: EventBus = {
-  on: () => pending('ctx.events', 'Say it with events, guard with hooks'),
-  emit: () => pending('ctx.events', 'Say it with events, guard with hooks'),
-};
-
-export const pendingHooks: HookRegistry = {
-  guard: () => pending('ctx.hooks', 'Say it with events, guard with hooks'),
-  filter: () => pending('ctx.hooks', 'Say it with events, guard with hooks'),
-};
 
 export const pendingRoutes: RouteRegistry = {
   add: () => pending('ctx.routes', 'No open doors: route registry with mandatory access rules'),

@@ -1,11 +1,9 @@
 import { CapabilityStore } from './capability-store';
 import type { LoadedModule } from '../blueprint';
+import { EventBus } from '../events';
+import { HookRegistry } from '../hooks';
 import {
-  pendingEvents,
-  pendingHooks,
   pendingRoutes,
-  type EventBus,
-  type HookRegistry,
   type ModuleContext,
   type RouteRegistry,
   type ServerModule,
@@ -43,7 +41,9 @@ export interface HostOptions {
   migrate?: () => void | Promise<void>;
   /** How the server part of a module is loaded. By default the entry file is imported. */
   load?: (module: LoadedModule) => Promise<ServerModule | null>;
+  /** Default: a new event bus. */
   events?: EventBus;
+  /** Default: a new hook registry. */
   hooks?: HookRegistry;
   routes?: RouteRegistry;
   /** How long a module may take to stop. Default 10000. */
@@ -72,6 +72,10 @@ export class ModuleHost {
   private readonly options: HostOptions;
   private readonly sink: LogSink;
   private readonly log: Logger;
+  /** The event bus all modules share. */
+  readonly events: EventBus;
+  /** The hook registry all modules share. */
+  readonly hooks: HookRegistry;
   private readonly capabilities = new CapabilityStore();
   private readonly started: Instance[] = [];
   private state: State = 'idle';
@@ -83,6 +87,8 @@ export class ModuleHost {
     this.options = options;
     this.sink = options.sink ?? console;
     this.log = createLogger('mcrs', this.sink);
+    this.events = options.events ?? new EventBus(this.log);
+    this.hooks = options.hooks ?? new HookRegistry(this.log);
   }
 
   /** Loads, registers, migrates and starts all modules. Rejects with a ModuleError on a problem. */
@@ -204,8 +210,18 @@ export class ModuleHost {
     }
   }
 
+  /** Lets listeners that are still running finish, so they do not run against stopped modules. */
+  private async drainEvents(): Promise<void> {
+    try {
+      await this.within(() => this.events.idle());
+    } catch {
+      this.log.warn('some event listeners were still running when the modules were stopped');
+    }
+  }
+
   private async stopStarted(): Promise<ModuleError[]> {
     const errors: ModuleError[] = [];
+    if (this.started.length > 0) await this.drainEvents();
     while (this.started.length > 0) {
       const { loaded, implementation, context } = this.started.pop() as Instance;
       if (implementation.stop === undefined) continue;
@@ -242,8 +258,8 @@ export class ModuleHost {
       dataDir: this.options.dataDir,
       log: createLogger(loaded.id, this.sink),
       routes: this.options.routes ?? pendingRoutes,
-      events: this.options.events ?? pendingEvents,
-      hooks: this.options.hooks ?? pendingHooks,
+      events: this.events.scoped(loaded.id),
+      hooks: this.hooks.scoped(loaded.id),
       capabilities: this.capabilities.accessFor(loaded),
     });
   }

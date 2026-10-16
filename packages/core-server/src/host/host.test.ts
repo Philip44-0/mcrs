@@ -261,12 +261,90 @@ describe('ModuleHost context', () => {
     expect(lines).toContainEqual(['[a]', 'hello', 42]);
   });
 
-  it('says which issue completes events, hooks and routes', async () => {
-    const h = host([mod('a')], { a: { register: (context) => context.events.emit('x') } });
+  it('says which issue completes the routes', async () => {
+    const h = host([mod('a')], {
+      a: {
+        register: (context) =>
+          context.routes.add({ method: 'GET', path: '/x', access: 'public', handler: () => {} }),
+      },
+    });
 
     await expect(h.start()).rejects.toThrow(
-      'module "a" failed in register(): ctx.events is not available yet',
+      'module "a" failed in register(): ctx.routes is not available yet',
     );
+  });
+});
+
+describe('ModuleHost events and hooks', () => {
+  it('delivers events between modules', async () => {
+    const received: unknown[] = [];
+    const h = host([mod('shop'), mod('stock')], {
+      shop: {
+        register: (context) =>
+          void context.events.on('stock.changed', (payload) => void received.push(payload)),
+      },
+      stock: {
+        register: () => {},
+        start: (context) =>
+          context.events.emit('stock.changed', { itemId: 'schnitzel', quantity: 3 }),
+      },
+    });
+
+    await h.start();
+    await h.events.idle();
+
+    expect(received).toEqual([{ itemId: 'schnitzel', quantity: 3 }]);
+  });
+
+  it('lets running listeners finish before the modules are stopped', async () => {
+    const calls: string[] = [];
+    const h = host([mod('a')], {
+      a: {
+        register: (context) =>
+          void context.events.on('a.thing.happened', async () => {
+            await new Promise((resolve) => setTimeout(resolve, 30));
+            calls.push('listener done');
+          }),
+        start: (context) => context.events.emit('a.thing.happened'),
+        stop: () => void calls.push('a.stop'),
+      },
+    });
+    await h.start();
+
+    await h.stop();
+
+    expect(calls).toEqual(['listener done', 'a.stop']);
+  });
+
+  it('gives modules guards and filters for their own names', async () => {
+    let result: unknown;
+    const h = host([mod('catalog'), mod('stock')], {
+      stock: {
+        register: (context) =>
+          void context.hooks.filter('catalog.items.list', (items) =>
+            items.map((item) => ({ ...item, available: false })),
+          ),
+      },
+      catalog: {
+        register: () => {},
+        start: (context) =>
+          void (result = context.hooks.applyFilters('catalog.items.list', [
+            { id: '1', name: 'Soup', available: true },
+          ])),
+      },
+    });
+
+    await h.start();
+
+    expect(result).toEqual([{ id: '1', name: 'Soup', available: false }]);
+  });
+
+  it('refuses a module that emits an event of another module', async () => {
+    const h = host([mod('stock')], {
+      stock: { register: (context) => context.events.emit('orders.order.sent', { orderId: '1' }) },
+    });
+
+    await expect(h.start()).rejects.toThrow('module "stock" cannot emit event "orders.order.sent"');
   });
 });
 

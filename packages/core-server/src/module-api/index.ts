@@ -1,9 +1,11 @@
-export { pendingEvents, pendingHooks, pendingRoutes } from './context';
+export { pendingRoutes } from './context';
 export type {
   CapabilityAccess,
-  EventBus,
-  HookRegistry,
+  EventOutbox,
+  HookOptions,
   ModuleContext,
+  ModuleEvents,
+  ModuleHooks,
   RouteAccess,
   RouteDefinition,
   RouteRegistry,
