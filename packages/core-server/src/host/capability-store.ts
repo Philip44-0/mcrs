@@ -23,6 +23,11 @@ export class CapabilityStore {
       .map(([name]) => name);
   }
 
+  /** For the core: the (first) implementation of a capability, whoever provided it. */
+  find<T>(name: string): T | undefined {
+    return this.provided.get(name)?.[0]?.implementation as T | undefined;
+  }
+
   /** The view of the store that one module gets. It only allows what the module declared. */
   accessFor(module: LoadedModule): CapabilityAccess {
     const id = module.id;

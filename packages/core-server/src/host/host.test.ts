@@ -261,7 +261,7 @@ describe('ModuleHost context', () => {
     expect(lines).toContainEqual(['[a]', 'hello', 42]);
   });
 
-  it('says which issue completes the routes', async () => {
+  it('says that routes need a route registry', async () => {
     const h = host([mod('a')], {
       a: {
         register: (context) =>
@@ -270,7 +270,7 @@ describe('ModuleHost context', () => {
     });
 
     await expect(h.start()).rejects.toThrow(
-      'module "a" failed in register(): ctx.routes is not available yet',
+      'module "a" failed in register(): ctx.routes is not available',
     );
   });
 });

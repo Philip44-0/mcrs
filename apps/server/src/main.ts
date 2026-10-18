@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import {
+  createHttpApp,
   createLogger,
   formatProblem,
   handleShutdownSignals,
@@ -8,8 +9,8 @@ import {
   ModuleHost,
   ModuleRegistry,
   shortFingerprint,
+  type AuthProvider,
 } from '@mcrs/core-server';
-import { createApp } from './app.js';
 
 /** MCRS_CONFIG if set, otherwise the first mcrs.config.json found in this or a parent folder. */
 function findConfigFile(): string {
@@ -51,9 +52,17 @@ log.info(
   `fingerprint ${shortFingerprint(registry.fingerprint)}, client ${shortFingerprint(registry.clientFingerprint)}`,
 );
 
+// The HTTP side. Routes that are not public ask the auth module (capability auth@1) who is calling;
+// until there is one, only public routes can be reached.
+const http = createHttpApp({
+  log: createLogger('http'),
+  auth: () => host.findCapability<AuthProvider>('auth@1'),
+});
+
 // Load, register and start the modules. The storage migrations will run between register and start.
 const host = new ModuleHost(registry, {
   dataDir: path.resolve(path.dirname(blueprint.configFile), blueprint.config.dataDir),
+  routes: http.routes,
 });
 try {
   await host.start();
@@ -62,6 +71,7 @@ try {
   console.error(`  x ${error instanceof Error ? error.message : String(error)}`);
   process.exit(1);
 }
+http.finish(); // locks the routes, adds the "not found" and error handlers
 
 // The environment variable PORT overrides the port from mcrs.config.json.
 const raw = process.env.PORT ?? String(blueprint.config.port);
@@ -72,7 +82,7 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
   process.exit(1);
 }
 
-const server = createApp().listen(port, (error?: Error) => {
+const server = http.app.listen(port, (error?: Error) => {
   if (error) {
     console.error(`Cannot listen on port ${port}:`, error.message);
     void host.stop().finally(() => process.exit(1));

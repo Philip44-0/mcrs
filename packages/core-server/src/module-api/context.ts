@@ -1,11 +1,11 @@
 import type { EmitArgs, FilterValueOf, GuardPayloadOf, PayloadOf } from '@mcrs/shared';
+import type { Request, Response } from 'express';
 import type { Logger } from '../common';
 
 /**
  * What a module gets in `register()`, `start()` and `stop()`.
  *
- * `routes` has its final shape here, but it is completed in its own issue. Until then it throws an
- * error that names the issue.
+ * `routes` only works when the host was given a route registry (the server does that).
  */
 export interface ModuleContext {
   readonly id: string;
@@ -14,7 +14,7 @@ export interface ModuleContext {
   /** Absolute path of the data directory (database, secrets, uploads). */
   readonly dataDir: string;
   readonly log: Logger;
-  readonly routes: RouteRegistry;
+  readonly routes: ModuleRoutes;
   readonly events: ModuleEvents;
   readonly hooks: ModuleHooks;
   readonly capabilities: CapabilityAccess;
@@ -101,26 +101,36 @@ export interface ModuleHooks {
   ): FilterValueOf<N>;
 }
 
+/** Who may call a route: everybody, every logged-in user, or users with one of these roles. */
 export type RouteAccess = 'public' | 'authenticated' | { roles: string[] };
+
+/** Express request and response. `response.locals.user` is the logged-in user on non-public routes. */
+export type ApiRequest = Request;
+export type ApiResponse = Response;
+export type RouteHandler = (request: ApiRequest, response: ApiResponse) => unknown;
 
 export interface RouteDefinition {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-  /** Relative to /api/<moduleId>. */
+  /** Relative to /api/<moduleId>, for example "/items/:id". "/" is /api/<moduleId> itself. */
   path: string;
-  /** Every route has to say who may call it. */
+  /** Required. A route without an access rule is refused, so the server does not start. */
   access: RouteAccess;
-  handler: (request: never, response: never) => unknown;
+  handler: RouteHandler;
 }
 
-/** Completed in the issue "No open doors: route registry with mandatory access rules". */
-export interface RouteRegistry {
+/** What a module can do with routes. */
+export interface ModuleRoutes {
+  /** Adds a route under /api/<moduleId>. Throws when the route is not acceptable. */
   add(route: RouteDefinition): void;
 }
 
-function pending(what: string, issue: string): never {
-  throw new Error(`${what} is not available yet (it is built in the issue "${issue}")`);
+/** Anything that hands out the route view of a module (the RouteRegistry does). */
+export interface RouteSource {
+  scoped(owner: string): ModuleRoutes;
 }
 
-export const pendingRoutes: RouteRegistry = {
-  add: () => pending('ctx.routes', 'No open doors: route registry with mandatory access rules'),
+export const pendingRoutes: ModuleRoutes = {
+  add: () => {
+    throw new Error('ctx.routes is not available: this host was started without a route registry');
+  },
 };

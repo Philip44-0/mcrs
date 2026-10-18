@@ -5,7 +5,7 @@ import { HookRegistry } from '../hooks';
 import {
   pendingRoutes,
   type ModuleContext,
-  type RouteRegistry,
+  type RouteSource,
   type ServerModule,
 } from '../module-api';
 import { createLogger, type LogSink, type Logger } from '../common';
@@ -45,7 +45,8 @@ export interface HostOptions {
   events?: EventBus;
   /** Default: a new hook registry. */
   hooks?: HookRegistry;
-  routes?: RouteRegistry;
+  /** Where the modules' routes go. Without it, `ctx.routes.add()` throws. */
+  routes?: RouteSource;
   /** How long a module may take to stop. Default 10000. */
   stopTimeoutMs?: number;
   /** Where log lines go. Default: the console. */
@@ -89,6 +90,11 @@ export class ModuleHost {
     this.log = createLogger('mcrs', this.sink);
     this.events = options.events ?? new EventBus(this.log);
     this.hooks = options.hooks ?? new HookRegistry(this.log);
+  }
+
+  /** For the core: the implementation of a capability that a module provided (for example `auth@1`). */
+  findCapability<T>(name: string): T | undefined {
+    return this.capabilities.find<T>(name);
   }
 
   /** Loads, registers, migrates and starts all modules. Rejects with a ModuleError on a problem. */
@@ -257,7 +263,7 @@ export class ModuleHost {
       config: loaded.config,
       dataDir: this.options.dataDir,
       log: createLogger(loaded.id, this.sink),
-      routes: this.options.routes ?? pendingRoutes,
+      routes: this.options.routes?.scoped(loaded.id) ?? pendingRoutes,
       events: this.events.scoped(loaded.id),
       hooks: this.hooks.scoped(loaded.id),
       capabilities: this.capabilities.accessFor(loaded),
