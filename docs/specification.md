@@ -1,6 +1,6 @@
 # MCRS – Modular Cash Register System: Specification
 
-**Status:** Draft 0.7 · **Repository:** https://github.com/Philip44-0/mcrs · **License:** GPL-2.0
+**Status:** Draft 0.8 · **Repository:** https://github.com/Philip44-0/mcrs · **License:** GPL-2.0
 
 A modular cash register / order system for clubs, voluntary fire brigades and similar events.
 Angular client, Express server, everything except a small skeleton is a replaceable module.
@@ -266,7 +266,7 @@ export interface ModuleContext {
   readonly config: Readonly<Record<string, unknown>>; // validated config block, with defaults, read-only
   readonly dataDir: string; // absolute path of the data directory
   readonly log: Logger; // every line starts with [<id>]
-  readonly routes: RouteRegistry; // routes.add({ method, path, access, handler })
+  readonly routes: ModuleRoutes; // routes.add({ method, path, access, handler })
   readonly events: ModuleEvents; // listen, emit, outbox
   readonly hooks: ModuleHooks; // guard, filter, runGuards, applyFilters
   readonly capabilities: {
@@ -306,8 +306,7 @@ stops the modules in reverse start order. A module that takes longer than 10 sec
 given up on, and an error in one `stop()` does not keep the others from stopping. A second signal
 during the shutdown ends the process immediately.
 
-`routes` has its final shape in the context, but it is completed in its own issue. Until then it
-throws an error that names the issue.
+`routes` is the module's view of the route registry (section 10).
 
 ---
 
@@ -389,8 +388,8 @@ export interface Query {
 
 ```ts
 export interface AuthProvider {
-  user(req: Request): AuthUser | null;
-  hasRole(req: Request, ...roles: string[]): boolean;
+  /** The user a request belongs to, or null. May look at the database, so it can be async. */
+  user(request: unknown): AuthUser | null | Promise<AuthUser | null>;
 }
 export interface AuthUser {
   id: string;
@@ -399,6 +398,9 @@ export interface AuthUser {
   roles: string[];
 }
 ```
+
+The route registry (section 10) asks this capability (`auth@1`) who is calling and checks the roles of
+a route against `AuthUser.roles`.
 
 Roles are an open set of strings. `admin` and `waiter` are defined by the default auth module; other modules may add their own (for example `display`).
 
@@ -592,22 +594,77 @@ On a mismatch:
 The skeleton does the heavy lifting so that modules only declare things:
 
 - Create the Express app, open the port, graceful shutdown.
-- `helmet`, JSON body size limit, cookie parsing, request ids, structured logging.
-- Uniform error format: `{ "error": { "code": "stock.soldOut", "message": "…", "details": {…} } }`.
-- Serve the built Angular client with SPA fallback.
-- Handshake endpoint and health endpoint (`/api/_core/health`).
-- Route registry with **mandatory access rules**:
+- Request ids, request logging, security headers, JSON bodies with a size limit.
+- One error format for everything.
+- The route registry with mandatory access rules.
+- Serve the built Angular client with SPA fallback, the handshake endpoint (section 9) and the health
+  endpoint (`GET /api/_core/health`, public).
+
+### 10.1 Route registry
 
 ```ts
 ctx.routes.add({
-  method: 'POST',
-  path: '/items',                                  // becomes /api/catalog/items
-  access: { roles: ['admin'] },                    // 'public' | 'authenticated' | { roles: [...] }
-  handler: async (req, res) => { … }
+  method: 'POST',                       // GET, POST, PUT, PATCH or DELETE
+  path: '/items',                       // becomes /api/catalog/items; "/" is /api/catalog itself
+  access: { roles: ['admin'] },         // 'public' | 'authenticated' | { roles: [...] }
+  handler: async (req, res) => { ... }, // Express request and response
 });
 ```
 
-A route without `access` is rejected at startup. Admin-only access is enforced here, on the server, regardless of what the Angular guards do.
+- **`access` is required.** A route without a valid access rule (a missing rule, a typo such as
+  `"Public"`, an empty list of roles) is refused when it is added. The module fails in `register()`
+  and the server does not start. Nothing is public by accident.
+- **Enforced on the server.** For every request to a route that is not public, the registry asks the
+  `auth@1` capability who is calling. Without a user the answer is `401 auth.required`, without one of
+  the roles `403 auth.forbidden`. If there is no auth module, or it fails, the route is not reachable.
+  The user is passed on as `res.locals.user`.
+- **Namespaced.** Routes live under `/api/<moduleId>/`. The same method and path cannot be registered
+  twice, and routes cannot be added once the modules started.
+- Paths start with `/` and contain no spaces, `?`, `#`, `..` or `//`.
+
+### 10.2 Error format
+
+Every error the API answers has the same shape:
+
+```json
+{
+  "error": {
+    "code": "stock.soldOut",
+    "message": "The action was refused.",
+    "details": { "itemId": "..." },
+    "requestId": "..."
+  }
+}
+```
+
+| What happened                                                   | Status           | Code                     |
+| --------------------------------------------------------------- | ---------------- | ------------------------ |
+| A handler throws `new ApiError(status, code, message, details)` | the given status | the given code           |
+| A guard refuses an action with `new Reject(code, details)`      | 409              | the code of the `Reject` |
+| Not logged in                                                   | 401              | `auth.required`          |
+| Logged in, but without the role                                 | 403              | `auth.forbidden`         |
+| Unknown endpoint                                                | 404              | `api.notFound`           |
+| The body is not valid JSON                                      | 400              | `request.invalidJson`    |
+| The body is bigger than the limit                               | 413              | `request.tooLarge`       |
+| An encoding the server does not support                         | 415              | `request.unsupported`    |
+| Anything else that is wrong with the request                    | 4xx              | `request.invalid`        |
+| A bug (any other error)                                         | 500              | `server.internalError`   |
+
+The message and details of a bug are never sent to the client. They are logged with the stack and the
+request id, and the client gets a general message with the same request id.
+
+### 10.3 Request ids, logging and security
+
+- **Request id.** Every response has an `X-Request-Id`. An id sent by the client is kept if it is short
+  and harmless (letters, digits, `.`, `_`, `-`, at most 64 characters); otherwise a new one is made.
+- **Logging.** One line when a request is done: method, path **without the query**, status, time, and
+  the request id (and the user id when there is one). 4xx are warnings, 5xx errors. Bodies, cookies
+  and headers are never logged.
+- **Headers.** `helmet` with its defaults, except `upgrade-insecure-requests` in the content security
+  policy: MCRS often runs over plain HTTP on a local network, where that directive would make browsers
+  load everything over HTTPS and fail. The content security policy may need adjusting when the
+  Angular client is served.
+- **Body limit.** JSON bodies up to 100 kB are accepted by default.
 
 ### Realtime (SSE)
 
@@ -930,12 +987,13 @@ Container format:
 
 ## 20. Changelog
 
-| Version | Changes                                                                                                                                             |
-| ------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0.7     | Events and hooks (8): ownership rules, priority, outbox, `Reject`, typed payloads; `ModuleEvents` and `ModuleHooks` in the context (6.2).           |
-| 0.6     | Server module entry, lifecycle order, capability rules, error handling and shutdown (6.2); `dataDir` and `getAll` in the module context.            |
-| 0.5     | Fingerprint details (sorting, encoding, shared SHA-256) and the registry freeze (6, 9).                                                             |
-| 0.4     | Added the dependency rules (6.1): capability providers, optional dependencies, start order and cycles.                                              |
-| 0.3     | Added the resolution rules for module sources (4.1).                                                                                                |
-| 0.2     | Added module sources (`path` and `package`) with the trust warning (4.1), environment variables (4.2) and the CI workflow in the repository layout. |
-| 0.1     | First complete draft.                                                                                                                               |
+| Version | Changes                                                                                                                                                                               |
+| ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.8     | Route registry with mandatory access rules, error format with codes, request ids, logging and security headers (10); `ModuleRoutes` in the context (6.2); async `AuthProvider` (7.2). |
+| 0.7     | Events and hooks (8): ownership rules, priority, outbox, `Reject`, typed payloads; `ModuleEvents` and `ModuleHooks` in the context (6.2).                                             |
+| 0.6     | Server module entry, lifecycle order, capability rules, error handling and shutdown (6.2); `dataDir` and `getAll` in the module context.                                              |
+| 0.5     | Fingerprint details (sorting, encoding, shared SHA-256) and the registry freeze (6, 9).                                                                                               |
+| 0.4     | Added the dependency rules (6.1): capability providers, optional dependencies, start order and cycles.                                                                                |
+| 0.3     | Added the resolution rules for module sources (4.1).                                                                                                                                  |
+| 0.2     | Added module sources (`path` and `package`) with the trust warning (4.1), environment variables (4.2) and the CI workflow in the repository layout.                                   |
+| 0.1     | First complete draft.                                                                                                                                                                 |
