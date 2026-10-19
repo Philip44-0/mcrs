@@ -1,6 +1,6 @@
 # MCRS – Modular Cash Register System: Specification
 
-**Status:** Draft 0.8 · **Repository:** https://github.com/Philip44-0/mcrs · **License:** GPL-2.0
+**Status:** Draft 0.9 · **Repository:** https://github.com/Philip44-0/mcrs · **License:** GPL-2.0
 
 A modular cash register / order system for clubs, voluntary fire brigades and similar events.
 Angular client, Express server, everything except a small skeleton is a replaceable module.
@@ -561,19 +561,27 @@ Both are shown in the settings module's module overview, and in every export fil
 
 ### Handshake
 
-Before the login screen, the client calls the public endpoint:
+Before the login screen, the client calls the public endpoint `POST /api/_core/handshake` and sends
+the modules its build contains:
 
+```json
+{ "clientApi": "1", "modules": [{ "id": "catalog", "version": "1.0.0" }] }
 ```
-POST /api/_core/handshake
-{ "clientApi": "1", "modules": [ { "id": "catalog", "version": "1.0.0" }, … ] }
-```
+
+- `clientApi` is the major version of the skeleton API the client was built for.
+- The endpoint is public, so the request is limited: at most 200 modules, an id looks like a module
+  id, a version has at most 64 characters (letters, digits, `.`, `+`, `-`), and no id appears twice.
+  A request that does not fit is answered with `400 handshake.invalid` and the list of problems.
+
+The answer:
 
 ```json
 {
   "compatible": false,
   "policy": "block",
-  "server": { "clientFingerprint": "9f2c41aa07be", "fingerprint": "c01d8e5a3b92" },
-  "client": { "clientFingerprint": "51ab99e0c4d7" },
+  "api": { "server": "1", "client": "1" },
+  "server": { "fingerprint": "c01d8e5a3b92…", "clientFingerprint": "9f2c41aa07be…" },
+  "client": { "clientFingerprint": "51ab99e0c4d7…" },
   "diff": {
     "missingOnClient": ["stock@1.0.0"],
     "missingOnServer": [],
@@ -582,10 +590,26 @@ POST /api/_core/handshake
 }
 ```
 
+- Fingerprints are the full 64 characters; the screens show the first 12.
+- `compatible` is true when the API versions match and the client has exactly the modules that the
+  server expects in the client (same ids, same versions).
+- `client.clientFingerprint` is computed by the server from the list it received, so the client does
+  not have to compute anything.
+- `missingOnClient` and `missingOnServer` list `id@version`; `versionMismatch` lists the modules both
+  sides have with different versions. All lists are sorted by id.
+- `policy` is `mismatchPolicy` from `mcrs.config.json`.
+- **Server-only modules never appear** in the answer, only inside the fingerprint over all modules.
+
+`GET /api/_core/health` (public) also reports `fingerprint` and `clientFingerprint`.
+
 On a mismatch:
 
-- **Server** writes a WARN log: both fingerprints and the diff.
-- **Client** shows the **mismatch screen** from the core (it must not depend on any module, so it uses no dialog service): both fingerprints, the three lists, and a hint (reload and clear the cache, or rebuild the client from the current config). With `"block"` the app stops there; with `"warn"` the screen can be dismissed.
+- **Server** writes a WARN log with both client fingerprints and the diff. The same mismatch is
+  reported once as a warning; repeats (a phone with an old app that reloads) are logged quietly.
+- **Client** shows the **mismatch screen** from the core (it must not depend on any module, so it uses
+  no dialog service): both fingerprints, the three lists, and a hint (reload and clear the cache, or
+  rebuild the client from the current config). With `"block"` the app stops there; with `"warn"` the
+  screen can be dismissed.
 
 ---
 
@@ -989,6 +1013,7 @@ Container format:
 
 | Version | Changes                                                                                                                                                                               |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.9     | Handshake and health endpoints (9): request limits, answer with `api` and full fingerprints, what is never revealed, warning once per mismatch.                                       |
 | 0.8     | Route registry with mandatory access rules, error format with codes, request ids, logging and security headers (10); `ModuleRoutes` in the context (6.2); async `AuthProvider` (7.2). |
 | 0.7     | Events and hooks (8): ownership rules, priority, outbox, `Reject`, typed payloads; `ModuleEvents` and `ModuleHooks` in the context (6.2).                                             |
 | 0.6     | Server module entry, lifecycle order, capability rules, error handling and shutdown (6.2); `dataDir` and `getAll` in the module context.                                              |
