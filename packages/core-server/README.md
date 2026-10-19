@@ -12,6 +12,7 @@ src/
   module-api/       what a module sees: ModuleContext, ServerModule, ...
   events/           the event bus: modules tell each other what happened
   hooks/            guards and filters: modules take part in what others do
+  handshake/        compares the modules of a client with the server's
   http/             the Express app: route registry with access rules, error format, security
   host/             brings modules to life: load, register, migrate, start, stop
   shutdown/         graceful shutdown on SIGINT and SIGTERM

@@ -2,6 +2,7 @@ export * from './blueprint';
 export * from './common';
 export * from './events';
 export * from './hooks';
+export * from './handshake';
 export * from './host';
 export * from './http';
 export * from './plan';
@@ -24,4 +25,11 @@ export type {
   ServerModule,
 } from './module-api';
 export { shortFingerprint } from '@mcrs/shared';
-export type { AuthProvider, AuthUser } from '@mcrs/shared';
+export type {
+  AuthProvider,
+  AuthUser,
+  HandshakeRequest,
+  HandshakeResponse,
+  ModuleDiff,
+  ModuleVersion,
+} from '@mcrs/shared';

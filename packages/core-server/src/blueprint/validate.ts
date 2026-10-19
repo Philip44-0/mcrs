@@ -2,11 +2,8 @@ import Ajv from 'ajv';
 import type { ErrorObject, SchemaObject } from 'ajv';
 import semver from 'semver';
 import type { McrsConfig, ModuleEntry, ModuleManifest } from '@mcrs/shared';
-import { pointerToPath, type Problem } from '../common';
+import { CORE_API_VERSION, pointerToPath, type Problem } from '../common';
 import { CAPABILITY_PATTERN, configSchema, manifestSchema } from './schemas';
-
-/** The version of the skeleton API. A module's `mcrs` range has to include it. */
-export const CORE_API_VERSION = '1.0.0';
 
 export interface Validation<T> {
   /** The validated value, or null when there are errors. */

@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import type { Logger } from '../common';
 import { describeError, errorBody } from './errors';
 import { resolveRequestId } from './request-id';
+import { addCoreRoutes, type CoreInfo } from './core-routes';
 import { RouteRegistry } from './route-registry';
 
 export interface HttpAppOptions {
@@ -14,6 +15,8 @@ export interface HttpAppOptions {
   auth: () => AuthProvider | undefined;
   /** The largest JSON body that is accepted. Default "100kb". */
   bodyLimit?: string;
+  /** The installed modules. Without it, health only says "ok" and there is no handshake endpoint. */
+  core?: CoreInfo;
 }
 
 export interface HttpApp {
@@ -96,21 +99,7 @@ export function createHttpApp(options: HttpAppOptions): HttpApp {
   const routes = new RouteRegistry({ auth: options.auth });
   app.use('/api', express.json({ limit: options.bodyLimit ?? '100kb' }), routes.router);
 
-  routes.add(
-    {
-      method: 'GET',
-      path: '/health',
-      access: 'public',
-      handler: (_request, response) => {
-        response.json({
-          status: 'ok',
-          uptimeSeconds: Math.round(process.uptime()),
-          time: new Date().toISOString(),
-        });
-      },
-    },
-    '_core',
-  );
+  addCoreRoutes(routes, { log: options.log, core: options.core });
 
   return {
     app,

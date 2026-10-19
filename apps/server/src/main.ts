@@ -57,6 +57,7 @@ log.info(
 const http = createHttpApp({
   log: createLogger('http'),
   auth: () => host.findCapability<AuthProvider>('auth@1'),
+  core: { registry, mismatchPolicy: blueprint.config.mismatchPolicy },
 });
 
 // Load, register and start the modules. The storage migrations will run between register and start.
