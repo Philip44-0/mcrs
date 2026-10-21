@@ -31,6 +31,14 @@ describe('ModuleRegistry', () => {
     expect(registry.get('catalog')?.id).toBe('catalog');
   });
 
+  it('lists the modules registered so far, also before it is frozen', () => {
+    const registry = new ModuleRegistry();
+    registry.register(mod('auth'));
+    registry.register(mod('catalog'));
+
+    expect(registry.modules.map((module) => module.id)).toEqual(['auth', 'catalog']);
+  });
+
   it('refuses to register a module after the freeze', () => {
     const registry = new ModuleRegistry();
     registry.register(mod('auth'));

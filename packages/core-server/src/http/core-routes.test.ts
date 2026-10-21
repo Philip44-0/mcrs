@@ -112,8 +112,8 @@ describe('handshake', () => {
     expect(body.policy).toBe('warn');
     expect(body.diff.missingOnClient).toEqual(['catalog@1.0.0']);
     expect(lines.warn).toHaveLength(1);
-    expect(String(lines.warn[0]?.[0])).toContain('a client does not match the server');
-    expect(lines.warn[0]?.[1]).toEqual(
+    expect(String(lines.warn[0]?.[1])).toContain('a client does not match the server'); // [tag, message, data]
+    expect(lines.warn[0]?.[2]).toEqual(
       expect.objectContaining({
         clientClientFingerprint: body.client.clientFingerprint,
         serverClientFingerprint: body.server.clientFingerprint,

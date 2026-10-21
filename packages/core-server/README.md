@@ -16,6 +16,8 @@ src/
   http/             the Express app: route registry with access rules, error format, security
   host/             brings modules to life: load, register, migrate, start, stop
   shutdown/         graceful shutdown on SIGINT and SIGTERM
+  testing/          helpers for tests: fake modules, a fake store with a real rollback
+  integration/      tests that run the whole core on fake modules
 ```
 
 Rules of thumb:
@@ -24,3 +26,10 @@ Rules of thumb:
   (`'../common'`), not from a file inside it.
 - Tests sit next to the code they test (`host.ts` and `host.test.ts`).
 - A new topic gets its own folder, for example `events/` or `routes/`.
+
+## Tests and coverage
+
+```
+npm test -w @mcrs/core-server            # all tests, once
+npm run coverage -w @mcrs/core-server    # with a coverage report (needs @vitest/coverage-v8)
+```

@@ -22,21 +22,12 @@ export async function readJsonFile(file: string): Promise<JsonReadResult> {
   } catch (error) {
     return {
       ok: false,
-      problem: { file, path: '', message: `invalid JSON: ${describeJsonError(error, text)}` },
+      problem: { file, path: '', message: `invalid JSON: ${describeJsonError(error)}` },
     };
   }
 }
 
-function describeJsonError(error: unknown, text: string): string {
-  const message = error instanceof Error ? error.message : String(error);
-  if (/line \d+ column \d+/.test(message)) return message; // V8 already names line and column
-
-  const position = /position (\d+)/.exec(message);
-  if (!position) return message;
-
-  const index = Number(position[1]);
-  const before = text.slice(0, index);
-  const line = before.split('\n').length;
-  const column = index - before.lastIndexOf('\n');
-  return `${message} (line ${line}, column ${column})`;
+/** V8 (Node 22 and later) already names the place of the error where it can, for example "(line 1 column 9)". */
+function describeJsonError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

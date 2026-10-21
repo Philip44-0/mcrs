@@ -251,7 +251,7 @@ describe('one error format', () => {
     expect(JSON.parse(text)).toEqual({
       error: expect.objectContaining({ code: 'server.internalError' }),
     });
-    expect(String(lines.error[0]?.[0])).toContain('GET /api/demo/boom failed');
+    expect(String(lines.error[0]?.[1])).toContain('GET /api/demo/boom failed'); // [tag, message, error]
   });
 
   it('answers unknown endpoints with 404 in the same format', async () => {
@@ -315,7 +315,7 @@ describe('request log', () => {
     await response.text();
     await new Promise((resolve) => setTimeout(resolve, 20));
 
-    const [message, data] = lines.info[lines.info.length - 1] ?? [];
+    const [, message, data] = lines.info[lines.info.length - 1] ?? []; // [tag, message, data]
     expect(String(message)).toMatch(/^GET \/api\/demo\/hello 200 \d+ms$/);
     expect(JSON.stringify(lines)).not.toContain('secret');
     expect(data).toEqual({ requestId: response.headers.get('x-request-id') });
@@ -335,10 +335,10 @@ describe('request log', () => {
     await (await fetch(`${url}/api/demo/boom`)).text();
     await new Promise((resolve) => setTimeout(resolve, 20));
 
-    expect(lines.warn.map((entry) => String(entry[0]))).toContainEqual(
+    expect(lines.warn.map((entry) => String(entry[1]))).toContainEqual(
       expect.stringMatching(/^GET \/api\/nothing 404/),
     );
-    expect(lines.error.map((entry) => String(entry[0]))).toContainEqual(
+    expect(lines.error.map((entry) => String(entry[1]))).toContainEqual(
       expect.stringMatching(/^GET \/api\/demo\/boom 500/),
     );
   });
