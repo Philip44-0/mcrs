@@ -6,5 +6,6 @@ export * from './api-error';
 export * from './fingerprint';
 export * from './reject';
 export * from './sha256';
+export * from './storage';
 
 export const API_PREFIX = '/api';
