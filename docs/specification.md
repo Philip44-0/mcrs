@@ -1,6 +1,6 @@
 # MCRS – Modular Cash Register System: Specification
 
-**Status:** Draft 0.10 · **Repository:** https://github.com/Philip44-0/mcrs · **License:** GPL-2.0
+**Status:** Draft 0.11 · **Repository:** https://github.com/Philip44-0/mcrs · **License:** GPL-2.0
 
 A modular cash register / order system for clubs, voluntary fire brigades and similar events.
 Angular client, Express server, everything except a small skeleton is a replaceable module.
@@ -389,6 +389,18 @@ another. Only operations that are given the `tx` belong to it.
 fields that a newer version declared, and runs `migrations[N]` (from version N-1 to N, in a
 transaction) for every version above the stored one. A fresh collection starts at its `schemaVersion`.
 The storage never throws data away on its own.
+
+**Details that every storage module has to get the same** (the conformance suite checks them):
+
+- `datetime` values and the timestamps of records are strings in exactly the format of
+  `Date.toISOString()` (UTC, with milliseconds), so that they sort and compare as text.
+- Empty values (`null`) sort first when ascending and last when descending. In a `unique` group, a
+  record with an empty field never conflicts.
+- An operation that throws changes nothing, and it does not end the transaction it was part of.
+- A call without `tx` that is made while a transaction runs is not part of it, but it may have to wait
+  for it to finish. Inside the `work` of a transaction, always pass the `tx`; never wait for a call
+  without it, and never start another transaction (it would wait for the one it is in).
+- When inserting, fields whose type allows `null` can be left out.
 
 **Errors.** Every storage module throws `StorageError` with one of the codes `not-found`, `conflict`,
 `unique-violation`, `duplicate-id`, `invalid-field`, `invalid-value`, `invalid-query` and
@@ -980,7 +992,7 @@ Container format:
 ## 17. Testing
 
 - **Vitest** for client and server (already configured by the Angular CLI scaffold).
-- **Contract conformance suites** in `packages/shared/conformance`, for example `runStorageConformance(factory)`. Anyone writing a replacement for `storage@1` (or any other contract) runs the suite against their module. A module that passes is a valid drop-in.
+- **Contract conformance suites** in `packages/shared/conformance`, for example `runStorageConformance(factory)`. Anyone writing a replacement for `storage@1` (or any other contract) runs the suite against their module. `createMemoryStorage()` in `@mcrs/shared/conformance` is a storage module that keeps everything in memory and passes the suite; it is the reference, and a stand-in for tests of other modules. A module that passes is a valid drop-in.
 - **Core tests:** loader errors (missing capability, duplicate provider, cycles), fingerprint stability, handshake diff, mandatory route access, guard rollback.
 - **API tests** with `supertest`: login, rate limit, CSRF rejection, idempotent order sending, concurrent sends of the last item (exactly one succeeds).
 - **Client tests:** slot rendering with and without contributing modules, URL-based back navigation from the bill to the sub-category.
@@ -1023,6 +1035,7 @@ Container format:
 
 | Version | Changes                                                                                                                                                                               |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.11    | Storage details every module has to get the same (7.1), the storage conformance suite and the in-memory reference storage (17).                                                       |
 | 0.10    | Storage contract (7.1): exact behaviour of every operation, `migrate()`, options with `tx`, error codes, collection and field rules, `createId()`.                                    |
 | 0.9     | Handshake and health endpoints (9): request limits, answer with `api` and full fingerprints, what is never revealed, warning once per mismatch.                                       |
 | 0.8     | Route registry with mandatory access rules, error format with codes, request ids, logging and security headers (10); `ModuleRoutes` in the context (6.2); async `AuthProvider` (7.2). |
