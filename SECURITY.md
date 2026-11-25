@@ -4,11 +4,11 @@
 
 MCRS is currently under active development. Security fixes are provided for the following versions:
 
-| Version | Supported |
-|---|---|
-| `main` (development) | Yes |
-| Pre-release versions | Best effort |
-| Older commits and snapshots | No |
+| Version                     | Supported   |
+| --------------------------- | ----------- |
+| `main` (development)        | Yes         |
+| Pre-release versions        | Best effort |
+| Older commits and snapshots | No          |
 
 Security support for released versions will be defined when stable releases are introduced.
 
