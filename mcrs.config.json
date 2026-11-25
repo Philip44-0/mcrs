@@ -1,1 +1,6 @@
-{ "id": "demo", "path": "modules/demo" }
+{
+  "port": 3000,
+  "modules": [
+    { "id": "storage-sqlite", "path": "modules/storage-sqlite", "config": { "file": "mcrs.db" } }
+  ]
+}

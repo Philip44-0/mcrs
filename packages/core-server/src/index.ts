@@ -32,4 +32,5 @@ export type {
   HandshakeResponse,
   ModuleDiff,
   ModuleVersion,
+  StorageProvider,
 } from '@mcrs/shared';

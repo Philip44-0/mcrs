@@ -1,0 +1,15 @@
+{
+  "name": "@mcrs/module-storage-sqlite",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest",
+    "test:ci": "vitest run"
+  },
+  "dependencies": {
+    "@mcrs/core-server": "*",
+    "@mcrs/shared": "*"
+  }
+}

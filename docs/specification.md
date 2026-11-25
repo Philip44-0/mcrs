@@ -1,6 +1,6 @@
 # MCRS – Modular Cash Register System: Specification
 
-**Status:** Draft 0.11 · **Repository:** https://github.com/Philip44-0/mcrs · **License:** GPL-2.0
+**Status:** Draft 0.12 · **Repository:** https://github.com/Philip44-0/mcrs · **License:** GPL-2.0
 
 A modular cash register / order system for clubs, voluntary fire brigades and similar events.
 Angular client, Express server, everything except a small skeleton is a replaceable module.
@@ -389,6 +389,12 @@ another. Only operations that are given the `tx` belong to it.
 fields that a newer version declared, and runs `migrations[N]` (from version N-1 to N, in a
 transaction) for every version above the stored one. A fresh collection starts at its `schemaVersion`.
 The storage never throws data away on its own.
+
+**Using collections.** A module can get its collections with `collection(name)` in `register()`, but may
+only use them from `start()` on, after `migrate()` ran; before that, operations throw
+`StorageError('invalid-collection')`. The checks that every storage module needs (ids, writable fields,
+value types, queries) are in `@mcrs/shared` (`checkFieldValue`, `checkQuery`, ...), so that all storage
+modules give the same errors.
 
 **Details that every storage module has to get the same** (the conformance suite checks them):
 
@@ -831,9 +837,15 @@ Modules that need popups declare `requires: ["dialog@1"]` and use `DialogService
 
 ### 12.3 `storage-sqlite`
 
-- Implements `storage@1` with SQLite (`better-sqlite3` or Node's built-in `node:sqlite`).
-- One file in `dataDir`, WAL mode, foreign keys not used across modules.
-- Table names equal collection names. Soft delete through `deletedAt`, `unique` constraints applied as partial indexes (`WHERE deletedAt IS NULL`).
+- Implements `storage@1` with SQLite, using the `node:sqlite` module that is built into Node.js (22 and
+  later), so nothing has to be installed. Node still marks it as experimental and prints a warning at startup.
+- One file in the data directory (`config.file`, default `mcrs.db`; a plain file name, or `:memory:`), in WAL mode.
+- One table per collection, named like the collection. Booleans are stored as 0 and 1, `json` fields as text.
+  The table `_mcrs_collections` remembers the version and shape of every collection.
+- Soft delete through `deletedAt`. Unique groups are checked by the module and also protected by partial
+  unique indexes (`WHERE "deletedAt" IS NULL`).
+- `migrate()` creates missing tables. A collection whose `schemaVersion` is higher than the stored one cannot
+  be upgraded yet, and a changed definition with the same version is refused.
 - Must pass the **storage conformance suite** (section 17).
 
 ---
@@ -1035,6 +1047,7 @@ Container format:
 
 | Version | Changes                                                                                                                                                                               |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0.12    | `storage-sqlite` on `node:sqlite` (12.3); using collections before `migrate()` and shared storage checks (7.1).                                                                       |
 | 0.11    | Storage details every module has to get the same (7.1), the storage conformance suite and the in-memory reference storage (17).                                                       |
 | 0.10    | Storage contract (7.1): exact behaviour of every operation, `migrate()`, options with `tx`, error codes, collection and field rules, `createId()`.                                    |
 | 0.9     | Handshake and health endpoints (9): request limits, answer with `api` and full fingerprints, what is never revealed, warning once per mismatch.                                       |

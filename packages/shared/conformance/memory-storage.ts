@@ -1,22 +1,22 @@
 import {
-  BASE_FIELDS,
-  RECORD_ID,
   StorageError,
+  assertWritableField,
+  checkFieldValue,
+  checkQuery,
+  checkRecordId,
   createId,
   validateCollectionDef,
   type AdjustResult,
   type BaseRecord,
   type Collection,
   type CollectionDef,
-  type FieldType,
   type NewRecord,
   type Options,
-  type Primitive,
   type Query,
   type RecordPatch,
   type StorageProvider,
   type Tx,
-} from '../src/storage';
+} from '../src';
 
 /**
  * A storage module that keeps everything in memory. It follows the storage contract exactly, so it is
@@ -29,17 +29,6 @@ export function createMemoryStorage(): StorageProvider {
 
 type Row = Record<string, unknown>;
 type Data = Map<string, Map<string, Row>>;
-
-const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
-const isIso = (value: string): boolean =>
-  ISO.test(value) && !Number.isNaN(Date.parse(value)) && new Date(value).toISOString() === value;
-
-const BASE_QUERYABLE: Record<string, FieldType> = {
-  id: 'string',
-  createdAt: 'datetime',
-  updatedAt: 'datetime',
-  rev: 'number',
-};
 
 class TxHandle {
   active = true;
@@ -161,14 +150,10 @@ class MemoryCollection<T extends BaseRecord> {
 
   insert(record: NewRecord<T>, options?: Options): Promise<T> {
     return this.storage.run(options, () => {
-      const input = record as Record<string, unknown>;
-      const { id: given, ...fields } = input;
-      for (const name of Object.keys(fields)) this.checkWritable(name);
+      const { id: given, ...fields } = record as Record<string, unknown>;
+      for (const name of Object.keys(fields)) assertWritableField(this.definition, name, 'given');
 
-      let id: string;
-      if (given === undefined) id = createId();
-      else if (typeof given === 'string' && RECORD_ID.test(given)) id = given;
-      else throw new StorageError('invalid-value', `"${String(given)}" is not an allowed id`);
+      const id = given === undefined ? createId() : checkRecordId(given);
       if (this.rows.has(id))
         throw new StorageError(
           'duplicate-id',
@@ -180,7 +165,7 @@ class MemoryCollection<T extends BaseRecord> {
       const row: Row = { id, createdAt: now, updatedAt: now, deletedAt: null, rev: 1 };
       for (const name of Object.keys(this.definition.fields)) row[name] = null;
       for (const [name, value] of Object.entries(fields))
-        if (value !== undefined) row[name] = this.checked(name, value);
+        if (value !== undefined) row[name] = checkFieldValue(this.definition, name, value);
 
       this.checkUnique(row);
       this.rows.set(id, row);
@@ -192,7 +177,8 @@ class MemoryCollection<T extends BaseRecord> {
     return this.storage.run(options, () => {
       const row = this.find(id);
       const changes = patch as Record<string, unknown>;
-      for (const name of Object.keys(changes)) this.checkWritable(name, true);
+      for (const name of Object.keys(changes))
+        assertWritableField(this.definition, name, 'changed');
       if (options?.ifRev !== undefined && row.rev !== options.ifRev) {
         throw new StorageError(
           'conflict',
@@ -203,7 +189,7 @@ class MemoryCollection<T extends BaseRecord> {
 
       const next: Row = { ...row };
       for (const [name, value] of Object.entries(changes))
-        if (value !== undefined) next[name] = this.checked(name, value);
+        if (value !== undefined) next[name] = checkFieldValue(this.definition, name, value);
       this.checkUnique(next);
 
       next.rev = (row.rev as number) + 1;
@@ -288,40 +274,10 @@ class MemoryCollection<T extends BaseRecord> {
     });
   }
 
-  // ------------------------------------------------------------ helpers
-
   /** A timestamp that is never earlier than the last change of the row (the clock may step back). */
   private later(row: Row): string {
     const now = new Date().toISOString();
     return now < (row.updatedAt as string) ? (row.updatedAt as string) : now;
-  }
-
-  private checkWritable(name: string, forUpdate = false): void {
-    if ((BASE_FIELDS as readonly string[]).includes(name)) {
-      throw new StorageError(
-        'invalid-field',
-        `"${name}" is set by the storage and cannot be ${forUpdate ? 'changed' : 'given'}`,
-      );
-    }
-    if (!(name in this.definition.fields))
-      throw new StorageError(
-        'invalid-field',
-        `"${name}" is not a field of ${this.definition.name}`,
-      );
-  }
-
-  private checked(name: string, value: unknown): unknown {
-    if (value === null) return null;
-    const type = this.definition.fields[name] as FieldType;
-    const fine =
-      (type === 'string' && typeof value === 'string') ||
-      (type === 'number' && typeof value === 'number' && Number.isFinite(value)) ||
-      (type === 'boolean' && typeof value === 'boolean') ||
-      (type === 'datetime' && typeof value === 'string' && isIso(value)) ||
-      (type === 'json' && jsonText(value) !== undefined);
-    if (!fine)
-      throw new StorageError('invalid-value', `the value of "${name}" is not a valid ${type}`);
-    return type === 'json' ? JSON.parse(jsonText(value) as string) : value;
   }
 
   private checkUnique(candidate: Row): void {
@@ -341,79 +297,34 @@ class MemoryCollection<T extends BaseRecord> {
     }
   }
 
-  private fieldType(name: string): FieldType | undefined {
-    const type = BASE_QUERYABLE[name] ?? this.definition.fields[name];
-    return type === 'json' ? undefined : type;
-  }
-
   private query(query: Query): Row[] {
-    const bad = (message: string): never => {
-      throw new StorageError('invalid-query', message);
-    };
-    const typeOf = (name: string): FieldType =>
-      this.fieldType(name) ?? bad(`"${name}" cannot be used in a query`);
-    const fits = (type: FieldType, value: unknown): boolean =>
-      value === null ||
-      (type === 'number'
-        ? typeof value === 'number' && Number.isFinite(value)
-        : type === 'boolean'
-          ? typeof value === 'boolean'
-          : typeof value === 'string');
-
-    const tests: Array<(row: Row) => boolean> = [];
-    for (const [name, condition] of Object.entries(query.where ?? {})) {
-      const type = typeOf(name);
-      if (typeof condition === 'object' && condition !== null) {
-        const list = (condition as { in?: unknown }).in;
-        if (!Array.isArray(list) || !list.every((value) => fits(type, value)))
-          bad(`"in" of "${name}" has to be a list of values of the right type`);
-        tests.push((row) => (list as Primitive[]).includes(row[name] as Primitive));
-      } else {
-        if (!fits(type, condition)) bad(`the value for "${name}" is not a ${type}`);
-        tests.push((row) => row[name] === condition);
-      }
-    }
-
-    const order = [...(query.orderBy ?? []), ['createdAt', 'asc'], ['id', 'asc']] as Array<
-      readonly [string, string]
-    >;
-    for (const [name, direction] of query.orderBy ?? []) {
-      typeOf(name);
-      if (direction !== 'asc' && direction !== 'desc')
-        bad(`the direction for "${name}" has to be "asc" or "desc"`);
-    }
-    const { limit, offset } = query;
-    if (limit !== undefined && !(Number.isInteger(limit) && limit > 0))
-      bad('"limit" has to be a positive whole number');
-    if (offset !== undefined && !(Number.isInteger(offset) && offset >= 0))
-      bad('"offset" has to be a whole number, 0 or more');
-
+    const checked = checkQuery(this.definition, query);
     const compare = (a: unknown, b: unknown): number =>
       a === b ? 0 : a === null ? -1 : b === null ? 1 : (a as string) < (b as string) ? -1 : 1;
+    const order = [
+      ...checked.orderBy,
+      { field: 'createdAt', descending: false },
+      { field: 'id', descending: false },
+    ];
+
     const rows = [...this.rows.values()]
       .filter(
         (row) =>
-          (query.includeDeleted === true || row.deletedAt === null) &&
-          tests.every((test) => test(row)),
+          (checked.includeDeleted || row.deletedAt === null) &&
+          checked.where.every((condition) =>
+            condition.values.includes(row[condition.field] as never),
+          ),
       )
       .sort((a, b) => {
-        for (const [name, direction] of order) {
-          const result = compare(a[name], b[name]);
-          if (result !== 0) return direction === 'desc' ? -result : result;
+        for (const { field, descending } of order) {
+          const result = compare(a[field], b[field]);
+          if (result !== 0) return descending ? -result : result;
         }
         return 0;
       });
+    const start = checked.offset ?? 0;
     return structuredClone(
-      rows.slice(offset ?? 0, limit === undefined ? undefined : (offset ?? 0) + limit),
+      rows.slice(start, checked.limit === undefined ? undefined : start + checked.limit),
     );
-  }
-}
-
-/** The JSON text of a value, or undefined when it cannot be written as JSON. */
-function jsonText(value: unknown): string | undefined {
-  try {
-    return JSON.stringify(value);
-  } catch {
-    return undefined;
   }
 }

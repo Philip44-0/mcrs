@@ -22,7 +22,7 @@ export type FieldType =
   | 'boolean'
   /** Anything that can be written as JSON (objects, arrays, ...). Cannot be used in `where`, `unique` or `indexes`. */
   | 'json'
-  /** A date and time as an ISO 8601 string in UTC, for example "2026-10-19T11:50:31.490Z". */
+  /** A date and time as a string in exactly the format of `Date.toISOString()`, for example "2026-10-19T11:50:31.490Z" (UTC, with milliseconds). */
   | 'datetime';
 
 /**
@@ -45,8 +45,18 @@ export interface BaseRecord {
 /** The names of the fields that belong to every record. */
 export const BASE_FIELDS = ['id', 'createdAt', 'updatedAt', 'deletedAt', 'rev'] as const;
 
-/** What `insert()` takes: all fields of the record, except the ones the storage sets (the `id` may be given). */
-export type NewRecord<T extends BaseRecord> = Omit<T, keyof BaseRecord> & { id?: string };
+type Fields<T extends BaseRecord> = Omit<T, keyof BaseRecord>;
+type NullableKeys<T> = { [K in keyof T]-?: null extends T[K] ? K : never }[keyof T];
+
+/**
+ * What `insert()` takes: the fields of the record, except the ones the storage sets (the `id` may be
+ * given). Fields whose type allows null can be left out; they are stored as null.
+ */
+export type NewRecord<T extends BaseRecord> = { id?: string } & Omit<
+  Fields<T>,
+  NullableKeys<Fields<T>>
+> &
+  Partial<Pick<Fields<T>, NullableKeys<Fields<T>>>>;
 
 /** What `update()` takes: any of the fields of the record, except the base fields. */
 export type RecordPatch<T extends BaseRecord> = Partial<Omit<T, keyof BaseRecord>>;
@@ -63,6 +73,7 @@ export type Primitive = string | number | boolean | null;
  *   Allowed fields: the declared fields except `json` ones, and `id`, `createdAt`, `updatedAt`, `rev`.
  * - `orderBy`: fields to sort by, in order. Allowed fields are the same. Without it (and for equal
  *   values) records come back in the order of `createdAt`, then `id`, so the order is always stable.
+ *   Empty values (null) sort before every other value when ascending, and after all of them when descending.
  * - `limit`: at most this many records (a positive integer). Without it: all.
  * - `offset`: skip this many records (zero or more), after sorting.
  * - `includeDeleted`: also return records that were removed. Default false.
@@ -115,6 +126,8 @@ export interface AdjustResult {
  *
  * Operations on a record that does not exist throw `StorageError('not-found')`, and so do operations on a
  * record that was removed (except `get()` with `includeDeleted`, `restore()` and `purge()`).
+ *
+ * An operation that throws changes nothing, and it does not end the transaction it was part of.
  */
 export interface Collection<T extends BaseRecord = BaseRecord> {
   /**
@@ -193,7 +206,8 @@ export interface Collection<T extends BaseRecord = BaseRecord> {
  * - `fields`: the fields of a record, with their types. Names start with a letter and use letters,
  *   digits and "_". The base fields (see `BASE_FIELDS`) are added by the storage and cannot be declared.
  * - `unique`: groups of fields whose values may only occur once among the active records. A group with
- *   several fields means the combination (two records may share one of them).
+ *   several fields means the combination (two records may share one of them). A record with an empty
+ *   (null) field in the group never conflicts.
  * - `indexes`: groups of fields that are searched or sorted often. Only a hint for speed.
  * - `migrations`: how to bring existing data from one version to the next. `migrations[N]` upgrades
  *   from version N-1 to N and runs in a transaction, in order, for every N above the stored version up
@@ -230,14 +244,20 @@ export interface StorageProvider {
    */
   migrate(): Promise<void>;
 
-  /** The operations on a collection. Throws `StorageError('invalid-collection')` when it was not defined. */
+  /**
+   * The operations on a collection. Throws `StorageError('invalid-collection')` when it was not defined.
+   * A module can get its collections in `register()`, but may only use them from `start()` on, after
+   * `migrate()` ran; before that, operations throw `StorageError('invalid-collection')`.
+   */
   collection<T extends BaseRecord = BaseRecord>(name: string): Collection<T>;
 
   /**
    * Runs `work` as one unit. When it returns, every change made with the given `tx` is kept at once; when
    * it throws, all of them are undone and the error is thrown on unchanged. Transactions run one after
    * another: a second one starts when the first has finished. Calls that are not given the `tx` are not
-   * part of the transaction, even while one is running.
+   * part of the transaction, even while one is running. They may wait until it has finished, so inside
+   * `work` always pass the `tx` and never wait for a call without it. Do not start a transaction inside
+   * `work`: it would wait for the one it is in.
    */
   transaction<R>(work: (tx: Tx) => Promise<R>): Promise<R>;
 }

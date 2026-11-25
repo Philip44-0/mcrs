@@ -10,6 +10,7 @@ import {
   ModuleRegistry,
   shortFingerprint,
   type AuthProvider,
+  type StorageProvider,
 } from '@mcrs/core-server';
 
 /** MCRS_CONFIG if set, otherwise the first mcrs.config.json found in this or a parent folder. */
@@ -64,6 +65,11 @@ const http = createHttpApp({
 const host = new ModuleHost(registry, {
   dataDir: path.resolve(path.dirname(blueprint.configFile), blueprint.config.dataDir),
   routes: http.routes,
+  // The storage module (storage@1) creates its collections and runs their migrations here:
+  // after every module registered, before the first one starts.
+  migrate: async () => {
+    await host.findCapability<StorageProvider>('storage@1')?.migrate();
+  },
 });
 try {
   await host.start();

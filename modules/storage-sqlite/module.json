@@ -1,0 +1,19 @@
+{
+  "id": "storage-sqlite",
+  "name": "SQLite storage",
+  "version": "1.0.0",
+  "mcrs": "^1.0.0",
+  "parts": ["server"],
+  "provides": ["storage@1"],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "file": {
+        "type": "string",
+        "pattern": "^(:memory:|[A-Za-z0-9][A-Za-z0-9._-]*)$",
+        "default": "mcrs.db"
+      }
+    },
+    "additionalProperties": false
+  }
+}
